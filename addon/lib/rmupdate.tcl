@@ -24,6 +24,9 @@ namespace eval rmupdate {
 	variable mnt_new "/usr/local/addons/rmupdate/var/mnt_new"
 	variable sys_dev "/dev/mmcblk0"
 	variable loop_dev "/dev/loop7"
+	variable install_log "/usr/local/addons/rmupdate/var/install.log"
+	variable install_lock "/usr/local/addons/rmupdate/var/install.lock"
+	variable log_file ""
 }
 
 proc ::rmupdate::compare_versions {a b} {
@@ -31,10 +34,21 @@ proc ::rmupdate::compare_versions {a b} {
 }
 
 proc ::rmupdate::write_log {str} {
+	variable log_file
 	puts stderr $str
-	#set fd [open "/tmp/rmupdate.log" "a"]
-	#puts $fd $str
-	#close $fd
+	if {$log_file != ""} {
+		set fd [open $log_file "a"]
+		puts $fd $str
+		close $fd
+	}
+}
+
+proc ::rmupdate::read_install_log {} {
+	variable install_log
+	set fp [open $install_log r]
+	set data [read $fp]
+	close $fp
+	return $data
 }
 
 proc ::rmupdate::version {} {
@@ -46,7 +60,7 @@ proc ::rmupdate::version {} {
 }
 
 proc ::rmupdate::get_partion_start_and_size {device partition} {
-	set data [exec parted $device unit B print]
+	set data [exec /usr/sbin/parted $device unit B print]
 	foreach d [split $data "\n"] {
 		regexp {^\s*(\d)\s+(\d+)B\s+(\d+)B\s+(\d+)B.*} $d match num start end size
 		if { [info exists num] && $num == $partition } {
@@ -62,13 +76,14 @@ proc ::rmupdate::mount_image_partition {image partition mountpoint} {
 	
 	write_log "Mounting parition ${partition} of image ${image}."
 
-	set p [get_partion_start_and_size $sys_dev $partition]
+	set p [get_partion_start_and_size $image $partition]
+	#write_log "Partiton start=[lindex $p 0], size=[lindex $p 1]."
 	
 	file mkdir $mountpoint
-	catch {exec umount "${mountpoint}"}
-	catch {exec losetup -d $loop_dev}
-	exec losetup -o [lindex $p 0] $loop_dev "${image}"
-	exec mount $loop_dev -o ro "${mountpoint}"
+	catch {exec /bin/umount "${mountpoint}"}
+	catch {exec /sbin/losetup -d $loop_dev}
+	exec /sbin/losetup -o [lindex $p 0] $loop_dev "${image}"
+	exec /bin/mount $loop_dev -o ro "${mountpoint}"
 }
 
 proc ::rmupdate::mount_system_partition {partition_or_filesystem mountpoint} {
@@ -83,13 +98,13 @@ proc ::rmupdate::mount_system_partition {partition_or_filesystem mountpoint} {
 	write_log "Remounting filesystem ${partition_or_filesystem} (rw)."
 	
 	file mkdir $mountpoint
-	catch {exec umount "${mountpoint}"}
-	exec mount -o bind $partition_or_filesystem "${mountpoint}"
-	exec mount -o remount,rw "${mountpoint}"
+	catch {exec /bin/umount "${mountpoint}"}
+	exec /bin/mount -o bind $partition_or_filesystem "${mountpoint}"
+	exec /bin/mount -o remount,rw "${mountpoint}"
 }
 
 proc ::rmupdate::umount {device_or_mountpoint} {
-	exec umount "${device_or_mountpoint}"
+	exec /bin/umount "${device_or_mountpoint}"
 }
 
 proc ::rmupdate::get_filesystem_size_and_usage {device_or_mountpoint} {
@@ -128,11 +143,11 @@ proc ::rmupdate::check_sizes {image} {
 		umount $mnt_new
 		umount $mnt_cur
 		
-		# Minimum free space 100 MB
-		if { [expr {$new_used+100*1024*1024}] >= $cur_size } {
+		if { [expr {$new_used*1.5}] > $cur_size && [expr {$new_used+50*1024*1024}] >= $cur_size } {
 			error "Current filesystem of partition $partition (${cur_size} bytes) not big enough (new usage: ${new_used} bytes)."
 		}
 	}
+	write_log "Sizes of filesystems checked successfully."
 }
 
 proc ::rmupdate::update_filesystems {image} {
@@ -150,8 +165,9 @@ proc ::rmupdate::update_filesystems {image} {
 		mount_image_partition $image $partition $mnt_new
 		mount_system_partition $partition $mnt_cur
 		
-		write_log "Rsyncing filesystem."
+		write_log "Rsyncing filesystem of partition ${partition}."
 		set data [exec rsync --progress --archive --delete "${mnt_new}/" "${mnt_cur}"]
+		write_log "Rsync finished."
 		
 		umount $mnt_new
 		umount $mnt_cur
@@ -204,6 +220,7 @@ proc ::rmupdate::get_latest_firmware_version {} {
 
 proc ::rmupdate::download_firmware {version} {
 	variable img_dir
+	variable log_file
 	set image_file "${img_dir}/RaspberryMatic-${version}.img"
 	set download_url ""
 	foreach e [get_available_firmware_downloads] {
@@ -220,7 +237,13 @@ proc ::rmupdate::download_firmware {version} {
 	regexp {/([^/]+)$} $download_url match archive_file
 	set archive_file "${img_dir}/${archive_file}"
 	file mkdir $img_dir
-	exec wget "${download_url}" --no-check-certificate -q --output-document=$archive_file
+	if {$log_file != ""} {
+		exec wget "${download_url}" --show-progress --progress=dot:giga --no-check-certificate --quiet --output-document=$archive_file 2>>${log_file}
+		write_log ""
+	} else {
+		exec wget "${download_url}" --no-check-certificate --quiet --output-document=$archive_file
+	}
+	write_log "Download completed."
 	
 	write_log "Extracting firmware ${archive_file}."
 	set data [exec unzip -ql "${archive_file}"]
@@ -295,18 +318,57 @@ proc ::rmupdate::get_firmware_info {} {
 	return $json
 }
 
-proc ::rmupdate::install_firmware_version {version} {
-	set firmware_image ""
-	#foreach e [get_available_firmware_images] {
-	#	set v [get_version_from_filename $e]
-	#	if {$v == $version} {
-	#		set firmware_image $e
-	#		break
-	#	}
-	#}
-	if {$firmware_image == ""} {
-		download_firmware $version
+proc ::rmupdate::install_process_running {} {
+	variable install_lock
+	
+	if {! [file exists $install_lock]} {
+		return 0
 	}
+	
+	set fp [open $install_lock "r"]
+	set lpid [string trim [read $fp]]
+	close $fp
+	
+	if {[file exists "/proc/${lpid}"]} {
+		return 1
+	}
+	
+	file delete $install_lock
+	return 0
+}
+
+proc ::rmupdate::install_firmware_version {version} {
+	if {[rmupdate::install_process_running]} {
+		error "Another install process is running."
+	}
+	
+	variable install_lock
+	variable log_file
+	variable install_log
+	
+	set fd [open $install_lock "w"]
+	puts $fd [pid]
+	close $fd
+	
+	file delete $install_log
+	set log_file $install_log
+	set firmware_image ""
+	
+	foreach e [get_available_firmware_images] {
+		set v [get_version_from_filename $e]
+		if {$v == $version} {
+			set firmware_image $e
+			break
+		}
+	}
+	if {$firmware_image == ""} {
+		set firmware_image [download_firmware $version]
+	}
+	
+	check_sizes $firmware_image
+	update_filesystems $firmware_image
+	
+	file delete $install_lock
 }
 
 #puts [rmupdate::get_latest_firmware_version]

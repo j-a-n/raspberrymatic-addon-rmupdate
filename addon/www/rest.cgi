@@ -47,43 +47,36 @@ proc process {} {
 			return "\"[rmupdate::version]\""
 		} elseif {[lindex $path 1] == "get_firmware_info"} {
 			return [rmupdate::get_firmware_info]
-		} elseif {[lindex $path 1] == "install_firmware"} {
-			fconfigure stdout -buffering none
-			#puts "Content-Type: application/octet-stream"
-			puts "Content-Type: text/html; charset=utf-8"
-			puts "Status: 200 OK";
-			puts ""
-			flush stdout
-			after 1000
-			puts "Line 1\n"
-			flush stdout
-			after 1000
-			puts "Line 2\n"
-			flush stdout
-			after 1000
-			puts "Line 3\n"
-			flush stdout
-			after 1000
-			puts "Line 4\n"
-			flush stdout
-			return ""
+		} elseif {[lindex $path 1] == "start_install_firmware"} {
+			regexp {^([\d\.]+)$} $data match version
+			if { [info exists version] && $version != "" } {
+				rmupdate::install_firmware_version $version
+				return "\"done\""
+			} else {
+				error "Invalid version: ${data}"
+			}
+		} elseif {[lindex $path 1] == "read_install_log"} {
+			variable content_type "text/html"
+			return [rmupdate::read_install_log]
 		}
 	}
 	error "invalid request" "Not found" 404
 }
+
+variable content_type "application/json"
 
 if [catch {process} result] {
 	set status 500
 	if { [info exists $errorCode] } {
 		set status $errorCode
 	}
-	puts "Content-Type: application/json"
+	puts "Content-Type: ${content_type}"
 	puts "Status: $status";
 	puts ""
 	set result [json_string $result]
 	puts -nonewline "\{\"error\":\"${result}\"\}"
-} elseif {$result != ""} {
-	puts "Content-Type: application/json"
+} else {
+	puts "Content-Type: ${content_type}"
 	puts "Status: 200 OK";
 	puts ""
 	puts -nonewline $result

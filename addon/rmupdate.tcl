@@ -39,11 +39,11 @@ proc main {} {
 	
 	if {$cmd == "show_current"} {
 		puts [rmupdate::get_current_firmware_version]
-	} elsif {$cmd == "show_latest"} {
+	} elseif {$cmd == "show_latest"} {
 		puts [rmupdate::get_latest_firmware_version]
-	} elsif {$cmd == "install_latest"} {
+	} elseif {$cmd == "install_latest"} {
 		rmupdate::install_firmware_version [rmupdate::get_latest_firmware_version]
-	} elsif {$cmd == "install"} {
+	} elseif {$cmd == "install"} {
 		if {$argc < 2} {
 			usage
 			exit 1

@@ -31,13 +31,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<title>RaspberryMatic Update Addon</title>
 	<script>
 		var message_timer_id = null;
+		var install_running = false;
 		
 		function display_message(type, html, millis) {
 			clear_message();
 			$('#message').html(html);
 			$('#message').attr('class', 'ui ' + type + ' message visible');
-			$('#message-edit-bridge').html(html);
-			$('#message-edit-bridge').attr('class', 'ui ' + type + ' message visible');
+			$('#message-log').html(html);
+			$('#message-log').attr('class', 'ui ' + type + ' message visible');
 			message_timer_id = setTimeout(clear_message, millis);
 		}
 		
@@ -48,25 +49,27 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			message_timer_id = null;
 			$('#message').html('');
 			$('#message').attr('class', 'ui message hidden');
-			$('#message-edit-bridge').html('');
-			$('#message-edit-bridge').attr('class', 'ui message hidden');
+			$('#message-log').html('');
+			$('#message-log').attr('class', 'ui message hidden');
+		}
+		
+		function default_error_callback(xhr, ajaxOptions, thrownError) {
+			console.error(xhr);
+			err = thrownError;
+			try {
+				obj = JSON.parse(xhr.responseText);
+				if (obj.error != null) {
+					err = obj.error;
+				}
+			}
+			catch(e) {
+			}
+			display_message('error', 'An error occurred: ' + err, 6000000);
 		}
 		
 		function rest(method, path, data, success_callback, error_callback) {
 			if (!error_callback) {
-				error_callback = function(xhr, ajaxOptions, thrownError) {
-					console.error(xhr);
-					err = thrownError;
-					try {
-						obj = JSON.parse(xhr.responseText);
-						if (obj.error != null) {
-							err = obj.error;
-						}
-					}
-					catch(e) {
-					}
-					display_message('error', 'An error occurred: ' + err, 60000);
-				}
+				error_callback = default_error_callback
 			}
 			$.ajax({
 				url: "rest.cgi?" + path,
@@ -78,49 +81,35 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
-		function install_firmware(version) {
-			$('#modal-log').modal('show');
-			//$('#log-content').append('Some text<br/>');
-			//$('#modal-log').modal('refresh');
-			//$('#modal-log').modal('hide');
-			var xhr = new XMLHttpRequest();
-			xhr.open('GET', 'rest.cgi?/install_firmware', true);
-			xhr.send(null);
-			var timer;
-			timer = window.setInterval(function() {
-				if (xhr.readyState == XMLHttpRequest.DONE) {
-					window.clearTimeout(timer);
-					//$('body').append('done <br />');
+		function update_install_log() {
+			rest("GET", "/read_install_log", null, function(data) {
+				$('#log-content').html(data.replace(/\n/g, '<br />'));
+				$('#modal-log').modal('refresh');
+				$('#log-content').scrollTop($('#log-content').prop("scrollHeight"));
+				if (install_running) {
+					setTimeout(update_install_log, 1000);
 				}
-				//$('body').append('state: ' + xhr.readyState + '<br />');
-				console.log(xhr.responseText);
-				$('#log-content').append(xhr.responseText + '<br/>');
-				//$('body').append('data: ' + xhr.responseText + '<br />');
-			}, 1000);
-			/*
-			var last_response_len = false;
-			$.ajax('rest.cgi?/install_firmware', {
-				xhrFields: {
-					onprogress: function(e) {
-						var this_response, response = e.currentTarget.response;
-						if(last_response_len === false) {
-							this_response = response;
-							last_response_len = response.length;
-						}
-						else {
-							this_response = response.substring(last_response_len);
-							last_response_len = response.length;
-						}
-						console.log(this_response);
-					}
-				}
-			}).done(function(data) {
-				console.log('Complete response = ' + data);
-			}).fail(function(data) {
-				console.log('Error: ', data);
 			});
-			console.log('Request Sent');
-			*/
+		}
+		
+		function install_firmware(version) {
+			display_message('info', 'Installing firmware ' + version + '.', 6000000);
+			install_running = true;
+			clear_message();
+			$('#log-content').html('');
+			$('#modal-log').modal('show');
+			rest("POST", "/start_install_firmware", version,
+				function(data) {
+					install_running = false;
+					display_message('success', 'Firmware ' + version + ' successfully installed.', 6000000);
+				},
+				function(xhr, ajaxOptions, thrownError) {
+					install_running = false;
+					//$('#modal-log').modal('hide');
+					default_error_callback(xhr, ajaxOptions, thrownError);
+				}
+			);
+			setTimeout(update_install_log, 1000);
 		}
 		
 		$(document).ready(function() {
@@ -174,13 +163,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		</table>
 	</div>
 	
-	<div id="modal-log" class="ui modal">
+	<div style="height:80%" id="modal-log" class="ui modal">
 		<i class="close icon"></i>
 		<div class="header">
 			Progress
 		</div>
-		<div id="log-content" class="content">
-		Line 1
+		<div class="content">
+			<div id="message-log" class="ui message hidden">
+			</div>
+			<pre style="max-height:80%; overflow-x:hidden; overflow-y:auto; white-space: pre-wrap;" id="log-content" class="content">
+			</pre>
 		</div>
 	</div>
 </body>
