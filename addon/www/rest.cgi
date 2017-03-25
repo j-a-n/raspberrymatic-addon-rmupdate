@@ -45,7 +45,28 @@ proc process {} {
 		
 		if {[lindex $path 1] == "version"} {
 			return "\"[rmupdate::version]\""
-		} elseif {[lindex $path 1] == "xy"} {
+		} elseif {[lindex $path 1] == "get_firmware_info"} {
+			return [rmupdate::get_firmware_info]
+		} elseif {[lindex $path 1] == "install_firmware"} {
+			fconfigure stdout -buffering none
+			#puts "Content-Type: application/octet-stream"
+			puts "Content-Type: text/html; charset=utf-8"
+			puts "Status: 200 OK";
+			puts ""
+			flush stdout
+			after 1000
+			puts "Line 1\n"
+			flush stdout
+			after 1000
+			puts "Line 2\n"
+			flush stdout
+			after 1000
+			puts "Line 3\n"
+			flush stdout
+			after 1000
+			puts "Line 4\n"
+			flush stdout
+			return ""
 		}
 	}
 	error "invalid request" "Not found" 404
@@ -61,7 +82,7 @@ if [catch {process} result] {
 	puts ""
 	set result [json_string $result]
 	puts -nonewline "\{\"error\":\"${result}\"\}"
-} else {
+} elseif {$result != ""} {
 	puts "Content-Type: application/json"
 	puts "Status: 200 OK";
 	puts ""

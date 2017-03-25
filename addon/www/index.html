@@ -30,8 +30,158 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	
 	<title>RaspberryMatic Update Addon</title>
 	<script>
+		var message_timer_id = null;
+		
+		function display_message(type, html, millis) {
+			clear_message();
+			$('#message').html(html);
+			$('#message').attr('class', 'ui ' + type + ' message visible');
+			$('#message-edit-bridge').html(html);
+			$('#message-edit-bridge').attr('class', 'ui ' + type + ' message visible');
+			message_timer_id = setTimeout(clear_message, millis);
+		}
+		
+		function clear_message() {
+			if (message_timer_id != null) {
+				clearTimeout(message_timer_id);
+			}
+			message_timer_id = null;
+			$('#message').html('');
+			$('#message').attr('class', 'ui message hidden');
+			$('#message-edit-bridge').html('');
+			$('#message-edit-bridge').attr('class', 'ui message hidden');
+		}
+		
+		function rest(method, path, data, success_callback, error_callback) {
+			if (!error_callback) {
+				error_callback = function(xhr, ajaxOptions, thrownError) {
+					console.error(xhr);
+					err = thrownError;
+					try {
+						obj = JSON.parse(xhr.responseText);
+						if (obj.error != null) {
+							err = obj.error;
+						}
+					}
+					catch(e) {
+					}
+					display_message('error', 'An error occurred: ' + err, 60000);
+				}
+			}
+			$.ajax({
+				url: "rest.cgi?" + path,
+				type: method,
+				data: data,
+				context: document.body,
+				success: success_callback,
+				error: error_callback
+			});
+		}
+		
+		function install_firmware(version) {
+			$('#modal-log').modal('show');
+			//$('#log-content').append('Some text<br/>');
+			//$('#modal-log').modal('refresh');
+			//$('#modal-log').modal('hide');
+			var xhr = new XMLHttpRequest();
+			xhr.open('GET', 'rest.cgi?/install_firmware', true);
+			xhr.send(null);
+			var timer;
+			timer = window.setInterval(function() {
+				if (xhr.readyState == XMLHttpRequest.DONE) {
+					window.clearTimeout(timer);
+					//$('body').append('done <br />');
+				}
+				//$('body').append('state: ' + xhr.readyState + '<br />');
+				console.log(xhr.responseText);
+				$('#log-content').append(xhr.responseText + '<br/>');
+				//$('body').append('data: ' + xhr.responseText + '<br />');
+			}, 1000);
+			/*
+			var last_response_len = false;
+			$.ajax('rest.cgi?/install_firmware', {
+				xhrFields: {
+					onprogress: function(e) {
+						var this_response, response = e.currentTarget.response;
+						if(last_response_len === false) {
+							this_response = response;
+							last_response_len = response.length;
+						}
+						else {
+							this_response = response.substring(last_response_len);
+							last_response_len = response.length;
+						}
+						console.log(this_response);
+					}
+				}
+			}).done(function(data) {
+				console.log('Complete response = ' + data);
+			}).fail(function(data) {
+				console.log('Error: ', data);
+			});
+			console.log('Request Sent');
+			*/
+		}
+		
+		$(document).ready(function() {
+			rest("GET", "/version", null, function(version) {
+				document.title = document.title + " " + version;
+			});
+			rest("GET", "/get_firmware_info", null, function(data) {
+				$('#firmware_info tbody').empty();
+				data.forEach(function(fw) {
+					var disabled = (fw.image || fw.url ? '' : 'disabled');
+					var binstall = $('<button class="ui green basic '+disabled+' button">').attr('data-version', fw.version).text('install');
+					binstall.click(function() {
+						install_firmware(this.getAttribute('data-version'));
+					});
+					var latest = (fw.latest ? 'checked=""' : '')
+					var installed = (fw.installed ? 'checked=""' : '')
+					var available = (fw.url ? 'checked=""' : '')
+					var downloaded = (fw.image ? 'checked=""' : '')
+					$("#firmware_info tbody").append($('<tr>').append(
+						$('<td>').text(fw.version),
+						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+latest+'>'),$('<label></label>'))),
+						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+installed+'>'),$('<label></label>'))),
+						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+available+'>'),$('<label></label>'))),
+						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+downloaded+'>'),$('<label></label>'))),
+						$('<td class="center aligned">').append(binstall)
+					));
+				});
+			});
+		});
 	</script>
 </head>
 <body>
+	<div style="padding-top: 5vw" class="ui container">
+		<h1 class="ui header">RaspberryMatic Update</h1>
+		<div id="message" class="ui message hidden">
+		</div>
+		<h2 class="ui dividing header">Firmwares</h2>
+		<table id="firmware_info" class="ui celled stackable table">
+			<thead>
+				<tr>
+					<th>Version</th>
+					<th class="center aligned">Latest</th>
+					<th class="center aligned">Installed</th>
+					<th class="center aligned">Available</th>
+					<th class="center aligned">Downloaded</th>
+					<th class="center aligned">Action</th>
+				</tr>
+			</thead>
+			<tbody>
+			</tbody>
+		</table>
+	</div>
+	
+	<div id="modal-log" class="ui modal">
+		<i class="close icon"></i>
+		<div class="header">
+			Progress
+		</div>
+		<div id="log-content" class="content">
+		Line 1
+		</div>
+	</div>
 </body>
 </html>

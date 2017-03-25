@@ -17,12 +17,17 @@
 #
 
 namespace eval rmupdate {
-	variable addon_dir "/usr/local/addons/raspmatic-update"
-	variable tmp_dir "/usr/local/addons/raspmatic-update/tmp"
-	variable mnt_cur "/usr/local/addons/raspmatic-update/mnt_cur"
-	variable mnt_new "/usr/local/addons/raspmatic-update/mnt_new"
+	variable release_url "https://github.com/jens-maus/RaspberryMatic/releases"
+	variable addon_dir "/usr/local/addons/rmupdate"
+	variable img_dir "/usr/local/addons/rmupdate/var/img"
+	variable mnt_cur "/usr/local/addons/rmupdate/var/mnt_cur"
+	variable mnt_new "/usr/local/addons/rmupdate/var/mnt_new"
 	variable sys_dev "/dev/mmcblk0"
 	variable loop_dev "/dev/loop7"
+}
+
+proc ::rmupdate::compare_versions {a b} {
+	return [package vcompare $a $b]
 }
 
 proc ::rmupdate::write_log {str} {
@@ -33,7 +38,7 @@ proc ::rmupdate::write_log {str} {
 }
 
 proc ::rmupdate::version {} {
-	variable version_file
+	variable addon_dir
 	set fp [open "${addon_dir}/VERSION" r]
 	set data [read $fp]
 	close $fp
@@ -153,35 +158,18 @@ proc ::rmupdate::update_filesystems {image} {
 	}
 }
 
-proc ::rmupdate::get_latest_firmware_download_url {} {
-	set data [exec wget "https://github.com/jens-maus/RaspberryMatic/releases/latest" --no-check-certificate -q -O-]
-	foreach d [split $data "\n"] {
-		set href ""
-		regexp {<\s*a\s+href\s*=\s*"([^"]+/releases/download/[^"]+.zip)"} $d match href
-		if { [info exists href] && $href != ""} {
-			return "https://github.com${href}"
-		}
-	}
-	error "Failed to get latest firmware download url"
-}
-
-proc ::rmupdate::download_latest_firmware {} {
-	variable tmp_dir
-	
-	set download_url [get_latest_firmware_download_url]
-	write_log "Downloading latest firmware from ${download_url}."
-	regexp {/([^/]+)$} $download_url match archive_file
-	set archive_file "${tmp_dir}/${archive_file}"
-	file mkdir $tmp_dir
-	exec wget "${download_url}" --no-check-certificate -q --output-document=$archive_file
-	return $archive_file
-}
-
-proc ::rmupdate::get_latest_firmware_version {} {
-	set download_url [get_latest_firmware_download_url]
-	regexp {\-([\d\.]+).zip$} $download_url match latest_version
-	return $latest_version
-}
+#proc ::rmupdate::is_firmware_up_to_date {} {
+#	set latest_version [get_latest_firmware_version]
+#	write_log "Latest firmware version: ${latest_version}"
+#	
+#	set current_version [get_current_firmware_version]
+#	write_log "Current firmware version: ${current_version}"
+#	
+#	if {[compare_versions $current_version $latest_version] >= 0} {
+#		return 1
+#	}
+#	return 0
+#}
 
 proc ::rmupdate::get_current_firmware_version {} {
 	set fp [open "/boot/VERSION" r]
@@ -191,32 +179,147 @@ proc ::rmupdate::get_current_firmware_version {} {
 	return $current_version
 }
 
-proc ::rmupdate::is_firmware_up_to_date {} {
-	set latest_version [get_latest_firmware_version]
-	write_log "Latest firmware version: ${latest_version}"
-	
-	set current_version [get_current_firmware_version]
-	write_log "Current firmware version: ${current_version}"
-	
-	if {[string compare $current_version $latest_version] >= 0} {
-		return 1
+proc ::rmupdate::get_available_firmware_downloads {} {
+	variable release_url
+	set download_urls [list]
+	set data [exec wget "${release_url}" --no-check-certificate -q -O-]
+	foreach d [split $data ">"] {
+		set href ""
+		regexp {<\s*a\s+href\s*=\s*"([^"]+/releases/download/[^"]+\.zip)"} $d match href
+		if { [info exists href] && $href != ""} {
+			lappend download_urls "https://github.com${href}"
+		}
 	}
-	return 0
+	return $download_urls
 }
 
-rmupdate::download_latest_firmware
+proc ::rmupdate::get_latest_firmware_version {} {
+	set versions [list]
+	foreach e [get_available_firmware_downloads] {
+		lappend versions [get_version_from_filename $e]
+	}
+	set versions [lsort -decreasing -command compare_versions $versions]
+	return [lindex $versions 0]
+}
 
+proc ::rmupdate::download_firmware {version} {
+	variable img_dir
+	set image_file "${img_dir}/RaspberryMatic-${version}.img"
+	set download_url ""
+	foreach e [get_available_firmware_downloads] {
+		set v [get_version_from_filename $e]
+		if {$v == $version} {
+			set download_url $e
+			break
+		}
+	}
+	if {$download_url == ""} {
+		error "Failed to get url for firmware ${version}"
+	}
+	write_log "Downloading firmware from ${download_url}."
+	regexp {/([^/]+)$} $download_url match archive_file
+	set archive_file "${img_dir}/${archive_file}"
+	file mkdir $img_dir
+	exec wget "${download_url}" --no-check-certificate -q --output-document=$archive_file
+	
+	write_log "Extracting firmware ${archive_file}."
+	set data [exec unzip -ql "${archive_file}"]
+	set img_file ""
+	foreach d [split $data "\n"] {
+		regexp {\s+(\S+\.img)\s*$} $d match img_file
+		if { $img_file != "" } {
+			break
+		}
+	}
+	if { $img_file == "" } {
+		error "Failed to extract image from archive."
+	}
+	exec unzip "${archive_file}" "${img_file}" -o -d "${img_dir}"
+	set img_file "${img_dir}/${img_file}"
+	puts "${img_file} ${image_file}"
+	if {$img_file != $image_file} {
+		file rename $img_file $image_file
+	}
+	file delete $archive_file
+	return $image_file
+}
+
+proc ::rmupdate::get_available_firmware_images {} {
+	variable img_dir
+	file mkdir $img_dir
+	return [glob -nocomplain "${img_dir}/*.img"]
+}
+
+proc ::rmupdate::get_version_from_filename {filename} {
+	regexp {\-([\d\.]+)\.[^\.]+$} $filename match version
+	return $version
+}
+
+proc ::rmupdate::get_firmware_info {} {
+	set current [get_current_firmware_version]
+	set versions [list $current]
+	foreach e [get_available_firmware_downloads] {
+		set version [get_version_from_filename $e]
+		set downloads($version) $e
+		if {[lsearch $versions $version] == -1} {
+			lappend versions $version
+		}
+	}
+	foreach e [get_available_firmware_images] {
+		set version [get_version_from_filename $e]
+		set images($version) $e
+		if {[lsearch $versions $version] == -1} {
+			lappend versions $version
+		}
+	}
+	set versions [lsort -decreasing -command compare_versions $versions]
+	
+	set json "\["
+	set latest "true"
+	foreach v $versions {
+		set installed "false"
+		if {$v == $current} {
+			set installed "true"
+		}
+		set image ""
+		catch { set image $images($v) }
+		set url ""
+		catch { set url $downloads($v) }
+		append json "\{\"version\":\"${v}\",\"installed\":${installed},\"latest\":${latest}\,\"url\":\"${url}\",\"image\":\"${image}\"\},"
+		set latest "false"
+	}
+	if {[llength versions] > 0} {
+		set json [string range $json 0 end-1]
+	}
+	append json "\]"
+	return $json
+}
+
+proc ::rmupdate::install_firmware_version {version} {
+	set firmware_image ""
+	#foreach e [get_available_firmware_images] {
+	#	set v [get_version_from_filename $e]
+	#	if {$v == $version} {
+	#		set firmware_image $e
+	#		break
+	#	}
+	#}
+	if {$firmware_image == ""} {
+		download_firmware $version
+	}
+}
+
+#puts [rmupdate::get_latest_firmware_version]
+#puts [rmupdate::get_firmware_info]
+#puts [rmupdate::get_available_firmware_images]
+#puts [rmupdate::get_available_firmware_downloads]
+#rmupdate::download_latest_firmware
 #puts [rmupdate::is_firmware_up_to_date]
-
 #puts [rmupdate::get_latest_firmware_download_url]
-
 #rmupdate::check_sizes "/usr/local/addons/raspmatic-update/tmp/RaspberryMatic-2.27.7.20170316.img"
-
 #set res [rmupdate::get_partion_start_and_size "/dev/mmcblk0" 1]
-
 #rmupdate::mount_image_partition "/usr/local/addons/raspmatic-update/tmp/RaspberryMatic-2.27.7.20170316.img" 1 $rmupdate::mnt_new
 #rmupdate::umount $rmupdate::mnt_new
-
 #rmupdate::mount_system_partition "/boot" $rmupdate::mnt_cur
 #rmupdate::umount $rmupdate::mnt_cur
 
