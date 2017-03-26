@@ -1,8 +1,8 @@
 #!/bin/bash -e
 
 LOOP_DEV=4
-BOOT_SIZE=$((50*1024*1024))
-ROOT_SIZE=$((1000*1024*1024))
+BOOT_SIZE=$((100*1024*1024))
+ROOT_SIZE=$((1900*1024*1024))
 USR_LOCAL_SIZE=$((2*1024*1024))
 
 
@@ -12,7 +12,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 image_file="$1"
-new_image_file="$1.resized"
+new_image_file="${1/\.img/\.adjusted\.img}"
 
 echo "*** Creating new image file and partitions ***"
 dd if=/dev/zero of=$new_image_file bs=1M count=$((((${BOOT_SIZE}+${ROOT_SIZE}+${USR_LOCAL_SIZE})/1024/1024)+1))
@@ -49,7 +49,7 @@ losetup /dev/loop${LOOP_DEV} $new_image_file
 kpartx -a /dev/loop${LOOP_DEV}
 ln -s /dev/loop${LOOP_DEV} /dev/mapper/loop${LOOP_DEV}p
 
-fsck.vfat -a /dev/mapper/loop${LOOP_DEV}p1
+#fsck.vfat -a /dev/mapper/loop${LOOP_DEV}p1
 fatresize --size $BOOT_SIZE /dev/mapper/loop${LOOP_DEV}p1
 fsck.ext4 -f -y /dev/mapper/loop${LOOP_DEV}p2
 resize2fs /dev/mapper/loop${LOOP_DEV}p2

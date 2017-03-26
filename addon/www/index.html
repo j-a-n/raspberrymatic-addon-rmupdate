@@ -200,7 +200,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			rest("GET", "/is_system_upgradeable", null, function(upgradeable) {
 				if (!upgradeable) {
 					var message = 'Filesystems to small, system not upgradeable!<br />';
-					message += 'Please download and install adapted <a href="https://github.com/j-a-n/raspberrymatic-addon-rmupdate">RaspMatic image</a> first.';
+					message += 'Please download and install adjusted RaspMatic image from <a href="https://github.com/j-a-n/raspberrymatic-addon-rmupdate">RaspMatic image</a> first.';
 					display_message('error', message, 6000000);
 				}
 			});
