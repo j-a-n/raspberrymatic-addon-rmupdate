@@ -31,7 +31,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<title>RaspberryMatic Update Addon</title>
 	<script>
 		var message_timer_id = null;
-		var install_running = false;
+		var installation_running = "";
+		var current_firmware = '?';
+		var latest_firmware = '?';
 		
 		function display_message(type, html, millis) {
 			clear_message();
@@ -86,58 +88,123 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$('#log-content').html(data.replace(/\n/g, '<br />'));
 				$('#modal-log').modal('refresh');
 				$('#log-content').scrollTop($('#log-content').prop("scrollHeight"));
-				if (install_running) {
+				if (installation_running) {
 					setTimeout(update_install_log, 1000);
 				}
 			});
 		}
 		
+		function delete_firmware_image(version) {
+			rest("POST", "/delete_firmware_image", JSON.stringify({"version":version}),
+				function(data) {
+					display_message('success', 'Firmware image ' + version + ' successfully deleted.', 5000);
+					get_firmware_info();
+				}
+			);
+		}
+		
 		function install_firmware(version) {
-			display_message('info', 'Installing firmware ' + version + '.', 6000000);
-			install_running = true;
-			clear_message();
 			$('#log-content').html('');
 			$('#modal-log').modal('show');
-			rest("POST", "/start_install_firmware", version,
+			if (installation_running) {
+				return false;
+			}
+			installation_running = version;
+			$('[data-install-version="' + installation_running + '"]').addClass('loading');
+			var reboot = $('#reboot-after-install').is(':checked');
+			display_message('info', 'Installing firmware ' + version + '.', 6000000);
+			clear_message();
+			rest("POST", "/start_install_firmware", JSON.stringify({"version":version, "reboot":reboot}),
 				function(data) {
-					install_running = false;
+					$('[data-install-version="' + installation_running + '"]').removeClass('loading');
+					installation_running = "";
 					display_message('success', 'Firmware ' + version + ' successfully installed.', 6000000);
+					if (!reboot) {
+						get_firmware_info();
+					}
 				},
 				function(xhr, ajaxOptions, thrownError) {
-					install_running = false;
+					$('[data-install-version="' + installation_running + '"]').removeClass('loading');
+					installation_running = "";
 					//$('#modal-log').modal('hide');
-					default_error_callback(xhr, ajaxOptions, thrownError);
+					if (!reboot) {
+						get_firmware_info();
+						default_error_callback(xhr, ajaxOptions, thrownError);
+					}
 				}
 			);
 			setTimeout(update_install_log, 1000);
+		}
+		
+		function install_latest_firmware() {
+			if (latest_firmware && latest_firmware != '?') {
+				install_firmware(latest_firmware);
+			}
+		}
+		
+		function get_firmware_info() {
+			rest("GET", "/get_firmware_info", null, function(data) {
+				$('#firmware_info tbody').empty();
+				data.forEach(function(fw) {
+					if (fw.latest) latest_firmware = fw.version;
+					if (fw.installed) current_firmware = fw.version;
+					var color = 'yellow';
+					if (fw.latest) color = 'green';
+					if (fw.installed) color = 'gray';
+					var disabled = (fw.image || fw.url ? '' : 'disabled');
+					var binstall = $('<div class="ui '+ color +' basic '+ disabled +' button">').attr('data-install-version', fw.version).append($('<i class="sign in icon">'), 'install');
+					binstall.click(function() {
+						install_firmware(this.getAttribute('data-install-version'));
+					});
+					var bcls = '';
+					if (!fw.image) bcls = 'disabled';
+					if (fw.version == installation_running) bcls = 'loading';
+					var bdelete = $('<div class="ui orange basic '+ bcls +' button">').attr('data-delete-version', fw.version).append($('<i class="delete icon">'), 'delete download');
+					bdelete.click(function() {
+						delete_firmware_image(this.getAttribute('data-delete-version'));
+					});
+					
+					var available = (fw.url ? 'checked=""' : '')
+					var downloaded = (fw.image ? 'checked=""' : '')
+					var cls = '';
+					if (fw.installed) cls = ' class="warning"';
+					if (fw.latest) cls = ' class="positive"';
+					$("#firmware_info tbody").append($('<tr' + cls + '>').append(
+						$('<td>').text(fw.version),
+						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+available+'>'),$('<label></label>'))),
+						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+downloaded+'>'),$('<label></label>'))),
+						$('<td class="center aligned">').append(bdelete, binstall)
+					));
+				});
+				var color = "#d01919";
+				if (current_firmware == latest_firmware) {
+					color = "#21BA45";
+				}
+				$("#firmware-summary").empty();
+				$("#firmware-summary").append(
+					$('<div class="sub header">').html('Current installed version: <span style="color:'+ color +'">' + current_firmware + '</span>'),
+					$('<div class="sub header">').html('Latest avaialable version: ' + latest_firmware)
+				);
+				if (current_firmware != latest_firmware) {
+					$("#firmware-summary").append(
+						$('<div class="ui green basic button" style="margin-top:20px; margin-bottom:20px;">').click(install_latest_firmware).append($('<i class="sign in icon">'), 'Install latest firmware')
+					);
+				}
+			});
 		}
 		
 		$(document).ready(function() {
 			rest("GET", "/version", null, function(version) {
 				document.title = document.title + " " + version;
 			});
-			rest("GET", "/get_firmware_info", null, function(data) {
-				$('#firmware_info tbody').empty();
-				data.forEach(function(fw) {
-					var disabled = (fw.image || fw.url ? '' : 'disabled');
-					var binstall = $('<button class="ui green basic '+disabled+' button">').attr('data-version', fw.version).text('install');
-					binstall.click(function() {
-						install_firmware(this.getAttribute('data-version'));
-					});
-					var latest = (fw.latest ? 'checked=""' : '')
-					var installed = (fw.installed ? 'checked=""' : '')
-					var available = (fw.url ? 'checked=""' : '')
-					var downloaded = (fw.image ? 'checked=""' : '')
-					$("#firmware_info tbody").append($('<tr>').append(
-						$('<td>').text(fw.version),
-						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+latest+'>'),$('<label></label>'))),
-						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+installed+'>'),$('<label></label>'))),
-						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+available+'>'),$('<label></label>'))),
-						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+downloaded+'>'),$('<label></label>'))),
-						$('<td class="center aligned">').append(binstall)
-					));
-				});
+			rest("GET", "/is_system_upgradeable", null, function(upgradeable) {
+				if (!upgradeable) {
+					var message = 'Filesystems to small, system not upgradeable!<br />';
+					message += 'Please download and install adapted <a href="https://github.com/j-a-n/raspberrymatic-addon-rmupdate">RaspMatic image</a> first.';
+					display_message('error', message, 6000000);
+				}
 			});
+			get_firmware_info();
 		});
 	</script>
 </head>
@@ -147,12 +214,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		<div id="message" class="ui message hidden">
 		</div>
 		<h2 class="ui dividing header">Firmwares</h2>
+		<div class="content" id="firmware-summary">
+		</div>
 		<table id="firmware_info" class="ui celled stackable table">
 			<thead>
 				<tr>
 					<th>Version</th>
-					<th class="center aligned">Latest</th>
-					<th class="center aligned">Installed</th>
 					<th class="center aligned">Available</th>
 					<th class="center aligned">Downloaded</th>
 					<th class="center aligned">Action</th>
@@ -161,12 +228,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			<tbody>
 			</tbody>
 		</table>
+		<div class="ui checkbox">
+			<input id="reboot-after-install" type="checkbox" checked="checked">
+			<label>Reboot system after installation</label>
+		</div>
 	</div>
 	
 	<div style="height:80%" id="modal-log" class="ui modal">
 		<i class="close icon"></i>
 		<div class="header">
-			Progress
+			Installation log
 		</div>
 		<div class="content">
 			<div id="message-log" class="ui message hidden">

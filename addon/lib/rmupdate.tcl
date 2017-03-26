@@ -70,6 +70,16 @@ proc ::rmupdate::get_partion_start_and_size {device partition} {
 	return [list -1 -1]
 }
 
+proc ::rmupdate::is_system_upgradeable {} {
+	set ret [get_filesystem_size_and_usage "/"]
+	set size [lindex $ret 0]
+	set used [lindex $ret 1]
+	if { [expr {$used*1.5}] > $size && [expr {$used+50*1024*1024}] >= $size } {
+		return 0
+	}
+	return 1
+}
+
 proc ::rmupdate::mount_image_partition {image partition mountpoint} {
 	variable loop_dev
 	variable sys_dev
@@ -337,7 +347,12 @@ proc ::rmupdate::install_process_running {} {
 	return 0
 }
 
-proc ::rmupdate::install_firmware_version {version} {
+proc ::rmupdate::delete_firmware_image {version} {
+	variable img_dir
+	eval {file delete [glob "${img_dir}/*${version}.img"]}
+}
+
+proc ::rmupdate::install_firmware_version {version {reboot 1}} {
 	if {[rmupdate::install_process_running]} {
 		error "Another install process is running."
 	}
@@ -369,6 +384,11 @@ proc ::rmupdate::install_firmware_version {version} {
 	update_filesystems $firmware_image
 	
 	file delete $install_lock
+	
+	if {$reboot} {
+		write_log "Rebooting system."
+		exec /sbin/reboot -f
+	}
 }
 
 #puts [rmupdate::get_latest_firmware_version]

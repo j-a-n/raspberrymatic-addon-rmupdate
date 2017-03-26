@@ -48,12 +48,33 @@ proc process {} {
 		} elseif {[lindex $path 1] == "get_firmware_info"} {
 			return [rmupdate::get_firmware_info]
 		} elseif {[lindex $path 1] == "start_install_firmware"} {
-			regexp {^([\d\.]+)$} $data match version
+			regexp {\"version\"\s*:\s*\"([\d\.]+)\"} $data match version
+			regexp {\"reboot\"\s*:\s*(true|false)} $data match reboot
 			if { [info exists version] && $version != "" } {
-				rmupdate::install_firmware_version $version
-				return "\"done\""
+				if { ![info exists reboot] } {
+					set reboot "true"
+				}
+				if {$reboot == "true"} {
+					set reboot 1
+				} else {
+					set reboot 0
+				}
+				return "\"[rmupdate::install_firmware_version $version $reboot]\""
 			} else {
 				error "Invalid version: ${data}"
+			}
+		} elseif {[lindex $path 1] == "delete_firmware_image"} {
+			regexp {\"version\"\s*:\s*\"([\d\.]+)\"} $data match version
+			if { [info exists version] && $version != "" } {
+				return "\"[rmupdate::delete_firmware_image $version]\""
+			} else {
+				error "Invalid version: ${data}"
+			}
+		} elseif {[lindex $path 1] == "is_system_upgradeable"} {
+			if {[rmupdate::is_system_upgradeable]} {
+				return "true"
+			} else {
+				return "false"
 			}
 		} elseif {[lindex $path 1] == "read_install_log"} {
 			variable content_type "text/html"
