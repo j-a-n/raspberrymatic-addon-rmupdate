@@ -17,8 +17,8 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-set version_url "https://github.com/j-a-n/raspberrymatic-addon-hue/raw/master/VERSION"
-set package_url "https://github.com/j-a-n/raspberrymatic-addon-hue/raw/master/rmupdate.tar.gz"
+set version_url "https://github.com/j-a-n/raspberrymatic-addon-rmupdate/raw/master/VERSION"
+set package_url "https://github.com/j-a-n/raspberrymatic-addon-rmupdate/raw/master/rmupdate.tar.gz"
 
 set cmd ""
 if {[info exists env(QUERY_STRING)]} {
