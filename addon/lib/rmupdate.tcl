@@ -118,7 +118,7 @@ proc ::rmupdate::umount {device_or_mountpoint} {
 }
 
 proc ::rmupdate::get_filesystem_size_and_usage {device_or_mountpoint} {
-	set data [exec df]
+	set data [exec /bin/df]
 	foreach d [split $data "\n"] {
 		regexp {^(\S+)\s+\d+\s+(\d+)\s+(\d+)\s+\d+%\s(\S+)\s*$} $d match device used available mountpoint
 		if { [info exists device] } {
@@ -387,7 +387,7 @@ proc ::rmupdate::install_firmware_version {version {reboot 1}} {
 	
 	if {$reboot} {
 		write_log "Rebooting system."
-		exec /sbin/reboot -f
+		exec /bin/sh -c "/bin/sleep 5; /sbin/reboot -f" &
 	}
 }
 
