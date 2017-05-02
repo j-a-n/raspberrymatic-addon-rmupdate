@@ -170,7 +170,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					if (fw.installed) cls = ' class="warning"';
 					if (fw.latest) cls = ' class="positive"';
 					$("#firmware_info tbody").append($('<tr' + cls + '>').append(
-						$('<td>').text(fw.version),
+						$('<td>').append($('<a>', {text: fw.version, title: 'Open release info', href: fw.info_url, target: "_blank"})),
 						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+available+'>'),$('<label></label>'))),
 						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+downloaded+'>'),$('<label></label>'))),
 						$('<td class="center aligned">').append(bdelete, binstall)

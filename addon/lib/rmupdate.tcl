@@ -289,6 +289,7 @@ proc ::rmupdate::get_version_from_filename {filename} {
 }
 
 proc ::rmupdate::get_firmware_info {} {
+	variable release_url
 	set current [get_current_firmware_version]
 	set versions [list $current]
 	foreach e [get_available_firmware_downloads] {
@@ -318,7 +319,8 @@ proc ::rmupdate::get_firmware_info {} {
 		catch { set image $images($v) }
 		set url ""
 		catch { set url $downloads($v) }
-		append json "\{\"version\":\"${v}\",\"installed\":${installed},\"latest\":${latest}\,\"url\":\"${url}\",\"image\":\"${image}\"\},"
+		set info_url "${release_url}/tag/${v}"
+		append json "\{\"version\":\"${v}\",\"installed\":${installed},\"latest\":${latest}\,\"url\":\"${url}\"\,\"info_url\":\"${info_url}\",\"image\":\"${image}\"\},"
 		set latest "false"
 	}
 	if {[llength versions] > 0} {
