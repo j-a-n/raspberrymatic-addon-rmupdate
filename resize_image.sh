@@ -11,8 +11,16 @@ if [[ $EUID -ne 0 ]]; then
 	exit 1
 fi
 
-image_file="$1"
-new_image_file="${1/\.img/\.adjusted\.img}"
+image_file="$(realpath $1)"
+new_image_file="${image_file/\.img/\.adjusted\.img}"
+
+if [[ ! $image_file =~ .*\.img ]]; then
+	echo "Not an image file: ${image_file}." 1>&2
+	exit 1
+fi
+
+echo "image: ${image_file}"
+echo "adjusted image: ${new_image_file}"
 
 echo "*** Creating new image file and partitions ***"
 dd if=/dev/zero of=$new_image_file bs=1M count=$((((${BOOT_SIZE}+${ROOT_SIZE}+${USR_LOCAL_SIZE})/1024/1024)+1))
