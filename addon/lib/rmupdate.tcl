@@ -29,6 +29,33 @@ namespace eval rmupdate {
 	variable log_file ""
 }
 
+proc ::rmupdate::get_rpi_version {} {
+	set fp [open /proc/cpuinfo r]
+	set data [read $fp]
+	foreach d [split $data "\n"] {
+		regexp {^Revision\s*:\s*(\S+)\s*$} $d match revision
+		if { [info exists revision] } {
+			if {$revision == "a22082"} {
+				# Pi 3 Model B
+				return "rpi3"
+			} elseif {$revision == "900092"} {
+				# Pi Zero
+				return "rpi0"
+			} elseif {$revision == "a21041"} {
+				# Pi 2 Model B
+				return "rpi2"
+			} elseif {$revision == "0012"} {
+				# Pi Model A+
+				return "rpi1"
+			} elseif {$revision == "0010"} {
+				# Pi Model B+
+				return "rpi1"
+			}
+		}
+	}
+	return ""
+}
+
 proc ::rmupdate::compare_versions {a b} {
 	return [package vcompare $a $b]
 }
@@ -45,6 +72,9 @@ proc ::rmupdate::write_log {str} {
 
 proc ::rmupdate::read_install_log {} {
 	variable install_log
+	if { ![file exist $install_log] } {
+		return ""
+	}
 	set fp [open $install_log r]
 	set data [read $fp]
 	close $fp
@@ -207,13 +237,22 @@ proc ::rmupdate::get_current_firmware_version {} {
 
 proc ::rmupdate::get_available_firmware_downloads {} {
 	variable release_url
+	set rpi_version [get_rpi_version]
 	set download_urls [list]
 	set data [exec wget "${release_url}" --no-check-certificate -q -O-]
 	foreach d [split $data ">"] {
 		set href ""
-		regexp {<\s*a\s+href\s*=\s*"([^"]+/releases/download/[^"]+\.zip)"} $d match href
+		regexp {<\s*a\s+href\s*=\s*"([^"]+/releases/download/[^"]+)\.zip"} $d match href
 		if { [info exists href] && $href != ""} {
-			lappend download_urls "https://github.com${href}"
+			set fn [lindex [split $href "/"] end]
+			set tmp [split $fn "-"]
+			if { [llength $tmp] == 3 } {
+				if { $rpi_version != [lindex $tmp 2] } {
+					continue
+				}
+			}
+			#write_log $href
+			lappend download_urls "https://github.com${href}.zip"
 		}
 	}
 	return $download_urls
@@ -284,8 +323,11 @@ proc ::rmupdate::get_available_firmware_images {} {
 }
 
 proc ::rmupdate::get_version_from_filename {filename} {
-	regexp {\-([\d\.]+)\.[^\.]+$} $filename match version
-	return $version
+	set fn [file rootname [file tail $filename]]
+	set tmp [split $fn "-"]
+	return [lindex $tmp 1]
+	#regexp {\-([\d\.]+)\.[^\.]+-*.*$} $filename match version
+	#return $version
 }
 
 proc ::rmupdate::get_firmware_info {} {
@@ -406,6 +448,7 @@ proc ::rmupdate::install_firmware_version {version {reboot 1}} {
 #rmupdate::umount $rmupdate::mnt_new
 #rmupdate::mount_system_partition "/boot" $rmupdate::mnt_cur
 #rmupdate::umount $rmupdate::mnt_cur
+#puts [rmupdate::get_rpi_version]
 
 
 
