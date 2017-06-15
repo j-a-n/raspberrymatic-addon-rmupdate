@@ -43,13 +43,13 @@ proc ::rmupdate::get_rpi_version {} {
 				return "rpi0"
 			} elseif {$revision == "a21041"} {
 				# Pi 2 Model B
-				return "rpi2"
+				return "rpi3"
 			} elseif {$revision == "0012"} {
 				# Pi Model A+
-				return "rpi1"
+				return "rpi0"
 			} elseif {$revision == "0010"} {
 				# Pi Model B+
-				return "rpi1"
+				return "rpi0"
 			}
 		}
 	}
