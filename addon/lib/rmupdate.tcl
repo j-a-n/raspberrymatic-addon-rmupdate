@@ -30,27 +30,45 @@ namespace eval rmupdate {
 }
 
 proc ::rmupdate::get_rpi_version {} {
+	# Revison list from http://elinux.org/RPi_HardwareHistory
+	set revision_map(0002)   "rpi0"
+	set revision_map(0003)   "rpi0"
+	set revision_map(0004)   "rpi0"
+	set revision_map(0005)   "rpi0"
+	set revision_map(0006)   "rpi0"
+	set revision_map(0007)   "rpi0"
+	set revision_map(0008)   "rpi0"
+	set revision_map(0009)   "rpi0"
+	set revision_map(000d)   "rpi0"
+	set revision_map(000e)   "rpi0"
+	set revision_map(000f)   "rpi0"
+	set revision_map(0010)   "rpi0"
+	set revision_map(0011)   "rpi0"
+	set revision_map(0012)   "rpi0"
+	set revision_map(0013)   "rpi0"
+	set revision_map(0014)   "rpi0"
+	set revision_map(0015)   "rpi0"
+	set revision_map(900021) "rpi0"
+	set revision_map(900032) "rpi0"
+	set revision_map(900092) "rpi0"
+	set revision_map(900093) "rpi0"
+	set revision_map(920093) "rpi0"
+	set revision_map(9000c1) "rpi0"
+	set revision_map(a01040) "rpi3"
+	set revision_map(a01041) "rpi3"
+	set revision_map(a21041) "rpi3"
+	set revision_map(a22042) "rpi3"
+	set revision_map(a02082) "rpi3"
+	set revision_map(a020a0) "rpi3"
+	set revision_map(a22082) "rpi3"
+	set revision_map(a32082) "rpi3"
+	
 	set fp [open /proc/cpuinfo r]
 	set data [read $fp]
 	foreach d [split $data "\n"] {
 		regexp {^Revision\s*:\s*(\S+)\s*$} $d match revision
-		if { [info exists revision] } {
-			if {$revision == "a22082"} {
-				# Pi 3 Model B
-				return "rpi3"
-			} elseif {$revision == "900092"} {
-				# Pi Zero
-				return "rpi0"
-			} elseif {$revision == "a21041"} {
-				# Pi 2 Model B
-				return "rpi3"
-			} elseif {$revision == "0012"} {
-				# Pi Model A+
-				return "rpi0"
-			} elseif {$revision == "0010"} {
-				# Pi Model B+
-				return "rpi0"
-			}
+		if { [info exists revision] && [info exists revision_map($revision)] } {
+			return $revision_map($revision)
 		}
 	}
 	return ""
@@ -450,7 +468,7 @@ proc ::rmupdate::install_firmware_version {version {reboot 1}} {
 #rmupdate::umount $rmupdate::mnt_cur
 #puts [rmupdate::get_rpi_version]
 
-
+puts [rmupdate::get_rpi_version]
 
 
 
