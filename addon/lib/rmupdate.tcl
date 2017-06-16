@@ -35,19 +35,19 @@ proc ::rmupdate::get_rpi_version {} {
 	foreach d [split $data "\n"] {
 		regexp {^Revision\s*:\s*(\S+)\s*$} $d match revision
 		if { [info exists revision] } {
-			if {$revision == "a22082"} {
+			if {$revision == "a22082" || $revision == "a32082" || $revision == "a02082"} {
 				# Pi 3 Model B
 				return "rpi3"
-			} elseif {$revision == "900092"} {
+			} elseif {$revision == "900092" || $revision == "900093" || $revision == "920093"} {
 				# Pi Zero
 				return "rpi0"
-			} elseif {$revision == "a21041"} {
+			} elseif {$revision == "a21041" || $revision == "a01040" || $revision == "a01041" || $revision == "a22042"} {
 				# Pi 2 Model B
 				return "rpi3"
-			} elseif {$revision == "0012"} {
+			} elseif {$revision == "0012" || $revision == "0015"} {
 				# Pi Model A+
 				return "rpi0"
-			} elseif {$revision == "0010"} {
+			} elseif {$revision == "0010" || $revision == "0013" || $revision == "900032"} {
 				# Pi Model B+
 				return "rpi0"
 			}
