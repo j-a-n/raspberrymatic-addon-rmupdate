@@ -50,6 +50,7 @@ proc process {} {
 		} elseif {[lindex $path 1] == "start_install_firmware"} {
 			regexp {\"version\"\s*:\s*\"([\d\.]+)\"} $data match version
 			regexp {\"reboot\"\s*:\s*(true|false)} $data match reboot
+			regexp {\"dryrun\"\s*:\s*(true|false)} $data match dryrun
 			if { [info exists version] && $version != "" } {
 				if { ![info exists reboot] } {
 					set reboot "true"
@@ -59,7 +60,15 @@ proc process {} {
 				} else {
 					set reboot 0
 				}
-				return "\"[rmupdate::install_firmware_version $version $reboot]\""
+				if { ![info exists reboot] } {
+					set dryrun "false"
+				}
+				if {$dryrun == "true"} {
+					set dryrun 1
+				} else {
+					set dryrun 0
+				}
+				return "\"[rmupdate::install_firmware_version $version $reboot $dryrun]\""
 			} else {
 				error "Invalid version: ${data}"
 			}

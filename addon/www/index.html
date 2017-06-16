@@ -112,9 +112,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			installation_running = version;
 			$('[data-install-version="' + installation_running + '"]').addClass('loading');
 			var reboot = $('#reboot-after-install').is(':checked');
+			var dryrun = $('#dryrun').is(':checked');
 			display_message('info', 'Installing firmware ' + version + '.', 6000000);
 			clear_message();
-			rest("POST", "/start_install_firmware", JSON.stringify({"version":version, "reboot":reboot}),
+			rest("POST", "/start_install_firmware", JSON.stringify({"version":version, "reboot":reboot, "dryrun":dryrun}),
 				function(data) {
 					$('[data-install-version="' + installation_running + '"]').removeClass('loading');
 					installation_running = "";
@@ -228,6 +229,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			<tbody>
 			</tbody>
 		</table>
+		<div class="ui checkbox">
+			<input id="dryrun" type="checkbox">
+			<label>Perform a trial run with no changes made</label>
+		</div>
+		<br />
 		<div class="ui checkbox">
 			<input id="reboot-after-install" type="checkbox" checked="checked">
 			<label>Reboot system after installation</label>

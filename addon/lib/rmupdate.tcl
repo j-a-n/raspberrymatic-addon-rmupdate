@@ -208,9 +208,13 @@ proc ::rmupdate::check_sizes {image} {
 	write_log "Sizes of filesystems checked successfully."
 }
 
-proc ::rmupdate::update_filesystems {image} {
+proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 	variable mnt_new
 	variable mnt_cur
+	set extra_args ""
+	if {$dryrun != 0} {
+		set extra_args "--dry-run"
+	}
 	
 	write_log "Updating filesystems."
 	
@@ -224,7 +228,7 @@ proc ::rmupdate::update_filesystems {image} {
 		mount_system_partition $partition $mnt_cur
 		
 		write_log "Rsyncing filesystem of partition ${partition}."
-		set data [exec rsync --progress --archive --delete "${mnt_new}/" "${mnt_cur}"]
+		set data [exec rsync ${extra_args} --progress --archive --delete "${mnt_new}/" "${mnt_cur}"]
 		write_log "Rsync finished."
 		
 		umount $mnt_new
