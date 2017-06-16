@@ -468,13 +468,3 @@ proc ::rmupdate::install_firmware_version {version {reboot 1}} {
 #rmupdate::umount $rmupdate::mnt_cur
 #puts [rmupdate::get_rpi_version]
 
-puts [rmupdate::get_rpi_version]
-
-
-
-
-
-
-
-
-
