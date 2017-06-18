@@ -1,6 +1,3 @@
-# Currently broken!
-Currently any upgrade attempt to RaspberryMatic version 2.27.8.20170615 will fail badly.
-
 # RaspberryMatic addon to (auto-)update system
 This addon can be used to easily up- and downgrade the RaspberryMatic system.
 
