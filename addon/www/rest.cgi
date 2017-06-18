@@ -75,7 +75,8 @@ proc process {} {
 		} elseif {[lindex $path 1] == "delete_firmware_image"} {
 			regexp {\"version\"\s*:\s*\"([\d\.]+)\"} $data match version
 			if { [info exists version] && $version != "" } {
-				return "\"[rmupdate::delete_firmware_image $version]\""
+				set res [rmupdate::delete_firmware_image $version]
+				return "\"${res}\""
 			} else {
 				error "Invalid version: ${data}"
 			}

@@ -128,6 +128,66 @@ proc ::rmupdate::is_system_upgradeable {} {
 	return 1
 }
 
+proc ::rmupdate::get_part_id {device} {
+	#set data [exec blkid $device]
+	#foreach d [split $data "\n"] {
+	#	# recent busybox version needed
+	#	regexp {PARTUUID="([^"]+)"} $d match partuuid
+	#	if { [info exists partuuid] } {
+	#		return $partuuid
+	#	}
+	#}
+	foreach f [glob /dev/disk/by-partuuid/*] {
+		set d ""
+		catch {
+			set d [file readlink $f]
+		}
+		if { [file tail $d] == [file tail $device] } {
+			return [file tail $f]
+		}
+	}
+	return ""
+}
+
+proc ::rmupdate::update_cmdline {cmdline root} {
+	set fd [open $cmdline r]
+	set data [read $fd]
+	close $fd
+	
+	regsub -all "root=\[a-zA-Z0-9=/-\]+\s" $data "root=${root} " data
+	
+	set fd [open $cmdline w]
+	puts $fd $data
+	close $fd
+}
+
+proc ::rmupdate::update_fstab {fstab {boot ""} {root ""} {user ""}} {
+	set ndata ""
+	set fd [open $fstab r]
+	set data [read $fd]
+	foreach d [split $data "\n"] {
+		set filesystem ""
+		regexp {^([^#]\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+).*} $d match filesystem mountpoint type options dump pass
+		if { [info exists filesystem] } {
+			if {$filesystem != ""} {
+				if {$mountpoint == "/" && $root != ""} {
+					regsub -all $filesystem $d $root d
+				} elseif {$mountpoint == "/boot" && $boot != ""} {
+					regsub -all $filesystem $d $boot d
+				} elseif {$mountpoint == "/usr/local" && $user != ""} {
+					regsub -all $filesystem $d $user d
+				}
+			}
+		}
+		append ndata "${d}\n"
+	}
+	close $fd
+	
+	set fd [open $fstab w]
+	puts $fd $ndata
+	close $fd
+}
+
 proc ::rmupdate::mount_image_partition {image partition mountpoint} {
 	variable loop_dev
 	variable sys_dev
@@ -211,6 +271,8 @@ proc ::rmupdate::check_sizes {image} {
 proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 	variable mnt_new
 	variable mnt_cur
+	variable sys_dev
+	
 	set extra_args ""
 	if {$dryrun != 0} {
 		set extra_args "--dry-run"
@@ -228,8 +290,29 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 		mount_system_partition $partition $mnt_cur
 		
 		write_log "Rsyncing filesystem of partition ${partition}."
-		set data [exec rsync ${extra_args} --progress --archive --delete "${mnt_new}/" "${mnt_cur}"]
+		if {$partition == 2} {
+			exec rsync ${extra_args} --progress --archive --delete --exclude=/lib "${mnt_new}/" "${mnt_cur}"
+			exec rsync ${extra_args} --progress --archive --delete "${mnt_new}/lib/" "${mnt_cur}/lib.rmupdate"
+		} else {
+			exec rsync ${extra_args} --progress --archive --delete "${mnt_new}/" "${mnt_cur}"
+		}
 		write_log "Rsync finished."
+		
+		if {$partition == 1} {
+			write_log "Update cmdline."
+			if {$dryrun == 0} {
+				update_cmdline "${mnt_cur}/cmdline.txt" "${sys_dev}p2"
+				#set partid [get_part_id "${sys_dev}p2"]
+				#if { $partid != "" } {
+				#	set_root_in_cmdline "${mnt_cur}/cmdline.txt" "PARTUUID=${partid}"
+				#}
+			}
+		} elseif {$partition == 2} {
+			write_log "Update fstab."
+			if {$dryrun == 0} {
+				update_fstab "${mnt_cur}/etc/fstab" "${sys_dev}p1" "/dev/root" "${sys_dev}p3"
+			}
+		}
 		
 		umount $mnt_new
 		umount $mnt_cur
@@ -261,7 +344,7 @@ proc ::rmupdate::get_available_firmware_downloads {} {
 	variable release_url
 	set rpi_version [get_rpi_version]
 	set download_urls [list]
-	set data [exec wget "${release_url}" --no-check-certificate -q -O-]
+	set data [exec /usr/bin/wget "${release_url}" --no-check-certificate -q -O-]
 	foreach d [split $data ">"] {
 		set href ""
 		regexp {<\s*a\s+href\s*=\s*"([^"]+/releases/download/[^"]+)\.zip"} $d match href
@@ -309,15 +392,15 @@ proc ::rmupdate::download_firmware {version} {
 	set archive_file "${img_dir}/${archive_file}"
 	file mkdir $img_dir
 	if {$log_file != ""} {
-		exec wget "${download_url}" --show-progress --progress=dot:giga --no-check-certificate --quiet --output-document=$archive_file 2>>${log_file}
+		exec /usr/bin/wget "${download_url}" --show-progress --progress=dot:giga --no-check-certificate --quiet --output-document=$archive_file 2>>${log_file}
 		write_log ""
 	} else {
-		exec wget "${download_url}" --no-check-certificate --quiet --output-document=$archive_file
+		exec /usr/bin/wget "${download_url}" --no-check-certificate --quiet --output-document=$archive_file
 	}
 	write_log "Download completed."
 	
 	write_log "Extracting firmware ${archive_file}."
-	set data [exec unzip -ql "${archive_file}"]
+	set data [exec /usr/bin/unzip -ql "${archive_file}"]
 	set img_file ""
 	foreach d [split $data "\n"] {
 		regexp {\s+(\S+\.img)\s*$} $d match img_file
@@ -328,7 +411,7 @@ proc ::rmupdate::download_firmware {version} {
 	if { $img_file == "" } {
 		error "Failed to extract image from archive."
 	}
-	exec unzip "${archive_file}" "${img_file}" -o -d "${img_dir}"
+	exec /usr/bin/unzip "${archive_file}" "${img_file}" -o -d "${img_dir}"
 	set img_file "${img_dir}/${img_file}"
 	puts "${img_file} ${image_file}"
 	if {$img_file != $image_file} {
@@ -418,7 +501,7 @@ proc ::rmupdate::delete_firmware_image {version} {
 	eval {file delete [glob "${img_dir}/*${version}.img"]}
 }
 
-proc ::rmupdate::install_firmware_version {version {reboot 1}} {
+proc ::rmupdate::install_firmware_version {version {reboot 1} {dryrun 0}} {
 	if {[rmupdate::install_process_running]} {
 		error "Another install process is running."
 	}
@@ -447,13 +530,41 @@ proc ::rmupdate::install_firmware_version {version {reboot 1}} {
 	}
 	
 	check_sizes $firmware_image
-	update_filesystems $firmware_image
+	update_filesystems $firmware_image $dryrun
 	
 	file delete $install_lock
 	
 	if {$reboot} {
-		write_log "Rebooting system."
-		exec /bin/sh -c "/bin/sleep 5; /sbin/reboot -f" &
+		if { [file exist /lib.rmupdate] } {
+			write_log "Replacing /lib and rebooting system."
+		} else {
+			write_log "Rebooting system."
+		}
+	}
+	# Write success marker for web interface
+	write_log "INSTALL_FIRMWARE_SUCCESS"
+	after 3000
+	
+	if {$reboot} {
+		if { [file exist /lib.rmupdate] } {
+			exec mount -o remount,rw /
+			exec rsync --archive --delete /lib.rmupdate/ /lib
+			
+			set fd [open /proc/sys/kernel/sysrq "a"]
+			puts $fd "1"
+			close $fd
+			set fd [open /proc/sysrq-trigger "a"]
+			puts $fd "s"
+			close $fd
+			set fd [open /proc/sysrq-trigger "a"]
+			puts $fd "u"
+			close $fd
+			set fd [open /proc/sysrq-trigger "a"]
+			puts $fd "b"
+			close $fd
+		} else {
+			exec /bin/sh -c "sleep 5; reboot -f " &
+		}
 	}
 }
 

@@ -6,10 +6,19 @@ ADDON_DIR=/usr/local/addons/${ADDON_NAME}
 RCD_DIR=${CONFIG_DIR}/rc.d
 
 case "$1" in
-	""|start|stop|restart)
+	""|start)
+		if [ -e /lib.rmupdate ]; then
+			mount -o remount,rw /
+			rm -r /lib.rmupdate
+			mount -o remount,ro /
+		fi
+		echo "Done."
+	;;
+	
+	stop|restart)
 		echo "Nothing to do."
 	;;
-
+	
 	info)
 		version=$(cat ${ADDON_DIR}/VERSION)
 		echo "Info: <b>${ADDON_NAME} addon</b><br>"

@@ -83,8 +83,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
+		function installation_finished() {
+			if (installation_running) {
+				var version = installation_running;
+				$('[data-install-version="' + version + '"]').removeClass('loading');
+				installation_running = "";
+				msg = 'Firmware ' + version + ' successfully installed.'
+				display_message('success', msg, 6000000);
+			}
+		}
+		
 		function update_install_log() {
 			rest("GET", "/read_install_log", null, function(data) {
+				var regex_success = /INSTALL_FIRMWARE_SUCCESS\n/g;
+				if (regex_success.test(data)) {
+					installation_finished();
+				}
+				data = data.replace(regex_success, "");
 				$('#log-content').html(data.replace(/\n/g, '<br />'));
 				$('#modal-log').modal('refresh');
 				$('#log-content').scrollTop($('#log-content').prop("scrollHeight"));
@@ -117,9 +132,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			clear_message();
 			rest("POST", "/start_install_firmware", JSON.stringify({"version":version, "reboot":reboot, "dryrun":dryrun}),
 				function(data) {
-					$('[data-install-version="' + installation_running + '"]').removeClass('loading');
-					installation_running = "";
-					display_message('success', 'Firmware ' + version + ' successfully installed.', 6000000);
+					installation_finished();
 					if (!reboot) {
 						get_firmware_info();
 					}
@@ -128,8 +141,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					$('[data-install-version="' + installation_running + '"]').removeClass('loading');
 					installation_running = "";
 					//$('#modal-log').modal('hide');
-					if (!reboot) {
-						get_firmware_info();
+					if (installation_running) {
+						//get_firmware_info();
 						default_error_callback(xhr, ajaxOptions, thrownError);
 					}
 				}
