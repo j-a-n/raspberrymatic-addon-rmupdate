@@ -139,11 +139,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				},
 				function(xhr, ajaxOptions, thrownError) {
 					$('[data-install-version="' + installation_running + '"]').removeClass('loading');
-					installation_running = "";
 					//$('#modal-log').modal('hide');
 					if (installation_running) {
 						//get_firmware_info();
 						default_error_callback(xhr, ajaxOptions, thrownError);
+						installation_running = "";
 					}
 				}
 			);

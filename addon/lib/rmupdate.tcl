@@ -154,7 +154,7 @@ proc ::rmupdate::update_cmdline {cmdline root} {
 	set data [read $fd]
 	close $fd
 	
-	regsub -all "root=\[a-zA-Z0-9=/-\]+\s" $data "root=${root} " data
+	regsub -all "root=\[a-zA-Z0-9\=/\-\]+ " $data "root=${root} " data
 	
 	set fd [open $cmdline w]
 	puts $fd $data
