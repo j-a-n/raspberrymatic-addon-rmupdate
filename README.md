@@ -2,7 +2,7 @@
 This addon can be used to easily up- and downgrade the RaspberryMatic system.
 
 ## Prerequisites
-* RaspMatic system with adjusted partition sizes
+* Adjusted RaspMatic image with two root partitions
 
 ## Installation
 * Download [adapted RaspberryMatic image](https://github.com/j-a-n/raspberrymatic-addon-rmupdate/raw/master/RaspberryMatic.adjusted.zip)
