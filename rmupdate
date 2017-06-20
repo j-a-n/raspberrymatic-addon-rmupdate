@@ -7,7 +7,9 @@ RCD_DIR=${CONFIG_DIR}/rc.d
 
 case "$1" in
 	""|start)
-		echo "Nothing to do."
+		# Remove stale lockfile
+		[ -e /usr/local/addons/rmupdate/var/install.lock ] && rm /usr/local/addons/rmupdate/var/install.lock
+		echo "Done."
 	;;
 	
 	stop|restart)
