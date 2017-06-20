@@ -12,7 +12,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 image_file="$(realpath $1)"
-new_image_file="${image_file/\.img/\.adjusted\.img}"
+new_image_file="${image_file/\.img/\.rmupdate\.img}"
 
 if [[ ! $image_file =~ .*\.img ]]; then
 	echo "Not an image file: ${image_file}." 1>&2
