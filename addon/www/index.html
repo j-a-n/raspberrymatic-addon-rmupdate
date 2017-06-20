@@ -132,12 +132,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			clear_message();
 			rest("POST", "/start_install_firmware", JSON.stringify({"version":version, "reboot":reboot, "dryrun":dryrun}),
 				function(data) {
+					// We are not expecting a response
+					console.log("Firmware installation finished.")
 					installation_finished();
-					if (!reboot) {
-						get_firmware_info();
-					}
 				},
 				function(xhr, ajaxOptions, thrownError) {
+					console.error("Firmware installation error.")
 					$('[data-install-version="' + installation_running + '"]').removeClass('loading');
 					//$('#modal-log').modal('hide');
 					if (installation_running) {
@@ -197,7 +197,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$("#firmware-summary").empty();
 				$("#firmware-summary").append(
 					$('<div class="sub header">').html('Current installed version: <span style="color:'+ color +'">' + current_firmware + '</span>'),
-					$('<div class="sub header">').html('Latest avaialable version: ' + latest_firmware)
+					$('<div class="sub header">').html('Latest available version: ' + latest_firmware)
 				);
 				if (current_firmware != latest_firmware) {
 					$("#firmware-summary").append(
@@ -207,17 +207,27 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
+		function get_system_info() {
+			rest("GET", "/get_system_info", null, function(data) {
+				$("#system-info").empty();
+				$("#system-info").append(
+					$('<div class="sub header">').html('Current root partition: ' + data.root_partition)
+				);
+			});
+		}
+		
 		$(document).ready(function() {
 			rest("GET", "/version", null, function(version) {
 				document.title = document.title + " " + version;
 			});
 			rest("GET", "/is_system_upgradeable", null, function(upgradeable) {
 				if (!upgradeable) {
-					var message = 'Filesystems to small, system not upgradeable!<br />';
+					var message = 'System not upgradeable or filesystem to small!<br />';
 					message += 'Please download and install adjusted RaspMatic image from <a href="https://github.com/j-a-n/raspberrymatic-addon-rmupdate">RaspMatic image</a> first.';
 					display_message('error', message, 6000000);
 				}
 			});
+			get_system_info();
 			get_firmware_info();
 		});
 	</script>
@@ -226,6 +236,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<div style="padding-top: 5vw" class="ui container">
 		<h1 class="ui header">RaspberryMatic Update</h1>
 		<div id="message" class="ui message hidden">
+		</div>
+		<h2 class="ui dividing header">System info</h2>
+		<div class="content" id="system-info">
 		</div>
 		<h2 class="ui dividing header">Firmwares</h2>
 		<div class="content" id="firmware-summary">
@@ -247,7 +260,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			<label>Perform a trial run with no changes made</label>
 		</div>
 		<br />
-		<div style="visibility:hidden" class="ui checkbox">
+		<div class="ui checkbox">
 			<input id="reboot-after-install" type="checkbox" checked="checked">
 			<label>Reboot system after installation</label>
 		</div>

@@ -20,8 +20,8 @@ namespace eval rmupdate {
 	variable release_url "https://github.com/jens-maus/RaspberryMatic/releases"
 	variable addon_dir "/usr/local/addons/rmupdate"
 	variable img_dir "/usr/local/addons/rmupdate/var/img"
-	variable mnt_cur "/usr/local/addons/rmupdate/var/mnt_cur"
-	variable mnt_new "/usr/local/addons/rmupdate/var/mnt_new"
+	variable mnt_sys "/usr/local/addons/rmupdate/var/mnt_sys"
+	variable mnt_img "/usr/local/addons/rmupdate/var/mnt_img"
 	variable sys_dev "/dev/mmcblk0"
 	variable loop_dev "/dev/loop7"
 	variable install_log "/usr/local/addons/rmupdate/var/install.log"
@@ -115,28 +115,21 @@ proc ::rmupdate::get_partion_start_and_size {device partition} {
 			return [list $start $size]
 		}
 	}
-	return [list -1 -1]
+	error "Failed to get partition start and size of device ${device}, partition ${partition}."
 }
 
 proc ::rmupdate::is_system_upgradeable {} {
-	set ret [get_filesystem_size_and_usage "/"]
-	set size [lindex $ret 0]
-	set used [lindex $ret 1]
-	if { [expr {$used*1.5}] > $size && [expr {$used+50*1024*1024}] >= $size } {
+	variable sys_dev
+	if { [rmupdate::get_filesystem_label "${sys_dev}p2"] != "rootfs1" } {
+		return 0
+	}
+	if { [rmupdate::get_filesystem_label "${sys_dev}p3"] != "rootfs2" } {
 		return 0
 	}
 	return 1
 }
 
-proc ::rmupdate::get_part_id {device} {
-	#set data [exec blkid $device]
-	#foreach d [split $data "\n"] {
-	#	# recent busybox version needed
-	#	regexp {PARTUUID="([^"]+)"} $d match partuuid
-	#	if { [info exists partuuid] } {
-	#		return $partuuid
-	#	}
-	#}
+proc ::rmupdate::get_part_uuid {device} {
 	foreach f [glob /dev/disk/by-partuuid/*] {
 		set d ""
 		catch {
@@ -146,7 +139,18 @@ proc ::rmupdate::get_part_id {device} {
 			return [file tail $f]
 		}
 	}
-	return ""
+	error "Failed to get partition uuid of device ${device}."
+}
+
+proc ::rmupdate::get_filesystem_label {device} {
+	set data [exec /sbin/blkid $device]
+	foreach d [split $data "\n"] {
+		regexp {LABEL="([^"]+)"} $d match lab
+		if { [info exists lab] } {
+			return $lab
+		}
+	}
+	error "Failed to get filesystem label of device ${device}."
 }
 
 proc ::rmupdate::update_cmdline {cmdline root} {
@@ -159,6 +163,20 @@ proc ::rmupdate::update_cmdline {cmdline root} {
 	set fd [open $cmdline w]
 	puts $fd $data
 	close $fd
+}
+
+proc ::rmupdate::get_current_root_partition {} {
+	set cmdline "/boot/cmdline.txt"
+	set fd [open $cmdline r]
+	set data [read $fd]
+	close $fd
+	foreach d [split $data "\n"] {
+		regexp {root=PARTUUID=[a-f0-9]+-([0-9]+)} $d match partition
+		if { [info exists partition] } {
+			return [expr {0 + $partition}]
+		}
+	}
+	return 2
 }
 
 proc ::rmupdate::update_fstab {fstab {boot ""} {root ""} {user ""}} {
@@ -190,7 +208,6 @@ proc ::rmupdate::update_fstab {fstab {boot ""} {root ""} {user ""}} {
 
 proc ::rmupdate::mount_image_partition {image partition mountpoint} {
 	variable loop_dev
-	variable sys_dev
 	
 	write_log "Mounting parition ${partition} of image ${image}."
 
@@ -204,21 +221,38 @@ proc ::rmupdate::mount_image_partition {image partition mountpoint} {
 	exec /bin/mount $loop_dev -o ro "${mountpoint}"
 }
 
-proc ::rmupdate::mount_system_partition {partition_or_filesystem mountpoint} {
-	if {$partition_or_filesystem == 1} {
-		set partition_or_filesystem "/boot"
-	} elseif {$partition_or_filesystem == 2} {
-		set partition_or_filesystem "/"
-	} elseif {$partition_or_filesystem == 3} {
-		set partition_or_filesystem "/usr/local"
+proc ::rmupdate::mount_system_partition {partition mountpoint} {
+	variable sys_dev
+	set remount 1
+	set root_partition [get_current_root_partition]
+	
+	if {$partition == 1} {
+		set partition "/boot"
+	} elseif {$partition == 2 || $partition == 3} {
+		if {$partition == $root_partition} {
+			set partition "/"
+		} else {
+			set partition "${sys_dev}p${partition}"
+			set remount 0
+		}
+	} elseif {$partition == 4} {
+		set partition "/usr/local"
 	}
 	
-	write_log "Remounting filesystem ${partition_or_filesystem} (rw)."
-	
+	if {$remount} {
+		write_log "Remounting filesystem ${partition} (rw)."
+	} else {
+		write_log "Mounting device ${partition} (rw)."
+	}
 	file mkdir $mountpoint
 	catch {exec /bin/umount "${mountpoint}"}
-	exec /bin/mount -o bind $partition_or_filesystem "${mountpoint}"
-	exec /bin/mount -o remount,rw "${mountpoint}"
+	
+	if {$remount} {
+		exec /bin/mount -o bind $partition "${mountpoint}"
+		exec /bin/mount -o remount,rw "${mountpoint}"
+	} else {
+		exec /bin/mount -o rw $partition "${mountpoint}"
+	}
 }
 
 proc ::rmupdate::umount {device_or_mountpoint} {
@@ -239,29 +273,29 @@ proc ::rmupdate::get_filesystem_size_and_usage {device_or_mountpoint} {
 }
 
 proc ::rmupdate::check_sizes {image} {
-	variable mnt_new
-	variable mnt_cur
+	variable mnt_img
+	variable mnt_sys
 	
 	write_log "Checking size of filesystems."
 	
-	file mkdir $mnt_new
-	file mkdir $mnt_cur
+	file mkdir $mnt_img
+	file mkdir $mnt_sys
 	
 	foreach partition [list 1 2] {
-		mount_image_partition $image $partition $mnt_new
-		mount_system_partition $partition $mnt_cur
+		mount_image_partition $image $partition $mnt_img
+		mount_system_partition $partition $mnt_sys
 		
-		set su_new [get_filesystem_size_and_usage $mnt_new]
+		set su_new [get_filesystem_size_and_usage $mnt_img]
 		set new_used [lindex $su_new 1]
-		set su_cur [get_filesystem_size_and_usage $mnt_cur]
+		set su_cur [get_filesystem_size_and_usage $mnt_sys]
 		set cur_size [lindex $su_cur 0]
 		
 		write_log "Current filesystem (${partition}) size: ${cur_size}, new filesystem used bytes: ${new_used}."
 		
-		umount $mnt_new
-		umount $mnt_cur
+		umount $mnt_img
+		umount $mnt_sys
 		
-		if { [expr {$new_used*1.5}] > $cur_size && [expr {$new_used+50*1024*1024}] >= $cur_size } {
+		if { [expr {$new_used*1.05}] > $cur_size && [expr {$new_used+50*1024*1024}] >= $cur_size } {
 			error "Current filesystem of partition $partition (${cur_size} bytes) not big enough (new usage: ${new_used} bytes)."
 		}
 	}
@@ -269,9 +303,11 @@ proc ::rmupdate::check_sizes {image} {
 }
 
 proc ::rmupdate::update_filesystems {image {dryrun 0}} {
-	variable mnt_new
-	variable mnt_cur
+	variable mnt_img
+	variable mnt_sys
 	variable sys_dev
+	
+	set root_partition [get_current_root_partition]
 	
 	set extra_args ""
 	if {$dryrun != 0} {
@@ -280,42 +316,37 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 	
 	write_log "Updating filesystems."
 	
-	file mkdir $mnt_new
-	file mkdir $mnt_cur
+	file mkdir $mnt_img
+	file mkdir $mnt_sys
 	
-	foreach partition [list 1 2] {
-		write_log "Updating partition ${partition}."
-		
-		mount_image_partition $image $partition $mnt_new
-		mount_system_partition $partition $mnt_cur
-		
-		write_log "Rsyncing filesystem of partition ${partition}."
-		if {$partition == 2} {
-			exec rsync ${extra_args} --progress --archive --delete --exclude=/lib "${mnt_new}/" "${mnt_cur}"
-			exec rsync ${extra_args} --progress --archive --delete "${mnt_new}/lib/" "${mnt_cur}/lib.rmupdate"
-		} else {
-			exec rsync ${extra_args} --progress --archive --delete "${mnt_new}/" "${mnt_cur}"
+	foreach img_partition [list 2 1] {
+		set sys_partition $img_partition
+		if {$img_partition == 2 && $root_partition == 2} {
+			set sys_partition 3
 		}
+		write_log "Updating system partition ${sys_partition}."
+		
+		mount_image_partition $image $img_partition $mnt_img
+		mount_system_partition $sys_partition $mnt_sys
+		
+		write_log "Rsyncing filesystem of partition ${sys_partition}."
+		exec rsync ${extra_args} --progress --archive --delete "${mnt_img}/" "${mnt_sys}"
 		write_log "Rsync finished."
 		
-		if {$partition == 1} {
+		if {$img_partition == 1} {
 			write_log "Update cmdline."
 			if {$dryrun == 0} {
-				update_cmdline "${mnt_cur}/cmdline.txt" "${sys_dev}p2"
-				#set partid [get_part_id "${sys_dev}p2"]
-				#if { $partid != "" } {
-				#	set_root_in_cmdline "${mnt_cur}/cmdline.txt" "PARTUUID=${partid}"
-				#}
-			}
-		} elseif {$partition == 2} {
-			write_log "Update fstab."
-			if {$dryrun == 0} {
-				update_fstab "${mnt_cur}/etc/fstab" "${sys_dev}p1" "/dev/root" "${sys_dev}p3"
+				set new_root_partition 2
+				if {$root_partition == 2} {
+					set new_root_partition 3
+				}
+				set part_uuid [rmupdate::get_part_uuid "${sys_dev}p${new_root_partition}"]
+				update_cmdline "${mnt_sys}/cmdline.txt" "PARTUUID=${part_uuid}"
 			}
 		}
 		
-		umount $mnt_new
-		umount $mnt_cur
+		umount $mnt_img
+		umount $mnt_sys
 	}
 }
 
@@ -505,6 +536,9 @@ proc ::rmupdate::install_firmware_version {version {reboot 1} {dryrun 0}} {
 	if {[rmupdate::install_process_running]} {
 		error "Another install process is running."
 	}
+	if {! [rmupdate::is_system_upgradeable]} {
+		error "System not upgradeable."
+	}
 	
 	variable install_lock
 	variable log_file
@@ -534,37 +568,16 @@ proc ::rmupdate::install_firmware_version {version {reboot 1} {dryrun 0}} {
 	
 	file delete $install_lock
 	
-	if {$reboot} {
-		if { [file exist /lib.rmupdate] } {
-			write_log "Replacing /lib and rebooting system."
-		} else {
-			write_log "Rebooting system."
-		}
+	if {$reboot && !$dryrun} {
+		write_log "Rebooting system."
 	}
+	
 	# Write success marker for web interface
 	write_log "INSTALL_FIRMWARE_SUCCESS"
-	after 3000
+	after 5000
 	
-	if {$reboot} {
-		if { [file exist /lib.rmupdate] } {
-			exec mount -o remount,rw /
-			exec rsync --archive --delete /lib.rmupdate/ /lib
-			
-			set fd [open /proc/sys/kernel/sysrq "a"]
-			puts $fd "1"
-			close $fd
-			set fd [open /proc/sysrq-trigger "a"]
-			puts $fd "s"
-			close $fd
-			set fd [open /proc/sysrq-trigger "a"]
-			puts $fd "u"
-			close $fd
-			set fd [open /proc/sysrq-trigger "a"]
-			puts $fd "b"
-			close $fd
-		} else {
-			exec /bin/sh -c "sleep 5; reboot -f " &
-		}
+	if {$reboot && !$dryrun} {
+		exec /sbin/reboot -f
 	}
 }
 
@@ -577,9 +590,9 @@ proc ::rmupdate::install_firmware_version {version {reboot 1} {dryrun 0}} {
 #puts [rmupdate::get_latest_firmware_download_url]
 #rmupdate::check_sizes "/usr/local/addons/raspmatic-update/tmp/RaspberryMatic-2.27.7.20170316.img"
 #set res [rmupdate::get_partion_start_and_size "/dev/mmcblk0" 1]
-#rmupdate::mount_image_partition "/usr/local/addons/raspmatic-update/tmp/RaspberryMatic-2.27.7.20170316.img" 1 $rmupdate::mnt_new
-#rmupdate::umount $rmupdate::mnt_new
-#rmupdate::mount_system_partition "/boot" $rmupdate::mnt_cur
-#rmupdate::umount $rmupdate::mnt_cur
+#rmupdate::mount_image_partition "/usr/local/addons/raspmatic-update/tmp/RaspberryMatic-2.27.7.20170316.img" 1 $rmupdate::mnt_img
+#rmupdate::umount $rmupdate::mnt_img
+#rmupdate::mount_system_partition "/boot" $rmupdate::mnt_sys
+#rmupdate::umount $rmupdate::mnt_sys
 #puts [rmupdate::get_rpi_version]
-
+#puts [rmupdate::get_part_uuid "/dev/mmcblk0p3"]

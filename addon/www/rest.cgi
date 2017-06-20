@@ -47,6 +47,9 @@ proc process {} {
 			return "\"[rmupdate::version]\""
 		} elseif {[lindex $path 1] == "get_firmware_info"} {
 			return [rmupdate::get_firmware_info]
+		} elseif {[lindex $path 1] == "get_system_info"} {
+			set root_partition [rmupdate::get_current_root_partition]
+			return "\{\"root_partition\":${root_partition}\}"
 		} elseif {[lindex $path 1] == "start_install_firmware"} {
 			regexp {\"version\"\s*:\s*\"([\d\.]+)\"} $data match version
 			regexp {\"reboot\"\s*:\s*(true|false)} $data match reboot
@@ -75,8 +78,7 @@ proc process {} {
 		} elseif {[lindex $path 1] == "delete_firmware_image"} {
 			regexp {\"version\"\s*:\s*\"([\d\.]+)\"} $data match version
 			if { [info exists version] && $version != "" } {
-				set res [rmupdate::delete_firmware_image $version]
-				return "\"${res}\""
+				return "\"[rmupdate::delete_firmware_image $version]\""
 			} else {
 				error "Invalid version: ${data}"
 			}

@@ -7,12 +7,7 @@ RCD_DIR=${CONFIG_DIR}/rc.d
 
 case "$1" in
 	""|start)
-		if [ -e /lib.rmupdate ]; then
-			mount -o remount,rw /
-			rm -r /lib.rmupdate
-			mount -o remount,ro /
-		fi
-		echo "Done."
+		echo "Nothing to do."
 	;;
 	
 	stop|restart)
