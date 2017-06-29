@@ -27,6 +27,7 @@ namespace eval rmupdate {
 	variable install_log "/usr/local/addons/rmupdate/var/install.log"
 	variable install_lock "/usr/local/addons/rmupdate/var/install.lock"
 	variable log_file ""
+	variable debug 0
 }
 
 proc ::rmupdate::get_rpi_version {} {
@@ -120,10 +121,10 @@ proc ::rmupdate::get_partion_start_and_size {device partition} {
 
 proc ::rmupdate::is_system_upgradeable {} {
 	variable sys_dev
-	if { [rmupdate::get_filesystem_label "${sys_dev}p2"] != "rootfs1" } {
-		return 0
-	}
-	if { [rmupdate::get_filesystem_label "${sys_dev}p3"] != "rootfs2" } {
+	#if { [libfirmware::get_filesystem_label "${sys_dev}p2"] != "rootfs1" } {
+	#	return 0
+	#}
+	if { [libfirmware::get_filesystem_label "${sys_dev}p3"] != "rootfs2" } {
 		return 0
 	}
 	return 1
@@ -166,7 +167,7 @@ proc ::rmupdate::update_cmdline {cmdline root} {
 }
 
 proc ::rmupdate::get_current_root_partition {} {
-	set cmdline "/boot/cmdline.txt"
+	set cmdline "/proc/cmdline"
 	set fd [open $cmdline r]
 	set data [read $fd]
 	close $fd
@@ -244,19 +245,28 @@ proc ::rmupdate::mount_system_partition {partition mountpoint} {
 	} else {
 		write_log "Mounting device ${partition} (rw)."
 	}
-	file mkdir $mountpoint
-	catch {exec /bin/umount "${mountpoint}"}
+	
+	if {![file exists $mountpoint]} {
+		file mkdir $mountpoint
+	}
 	
 	if {$remount} {
-		exec /bin/mount -o bind $partition "${mountpoint}"
+		if {$partition != $mountpoint} {
+			exec /bin/mount -o bind $partition "${mountpoint}"
+		}
 		exec /bin/mount -o remount,rw "${mountpoint}"
 	} else {
+		catch {exec /bin/umount "${mountpoint}"}
 		exec /bin/mount -o rw $partition "${mountpoint}"
 	}
 }
 
 proc ::rmupdate::umount {device_or_mountpoint} {
-	exec /bin/umount "${device_or_mountpoint}"
+	if {$device_or_mountpoint == "/boot"} {
+		exec /bin/mount -o remount,ro "${device_or_mountpoint}"
+	} else {
+		exec /bin/umount "${device_or_mountpoint}"
+	}
 }
 
 proc ::rmupdate::get_filesystem_size_and_usage {device_or_mountpoint} {
@@ -306,13 +316,9 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 	variable mnt_img
 	variable mnt_sys
 	variable sys_dev
+	variable debug
 	
 	set root_partition [get_current_root_partition]
-	
-	set extra_args ""
-	if {$dryrun != 0} {
-		set extra_args "--dry-run"
-	}
 	
 	write_log "Updating filesystems."
 	
@@ -321,49 +327,70 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 	
 	foreach img_partition [list 2 1] {
 		set sys_partition $img_partition
+		set mnt_s $mnt_sys
 		if {$img_partition == 2 && $root_partition == 2} {
 			set sys_partition 3
+		}
+		if {$sys_partition == 1} {
+			set mnt_s "/boot"
 		}
 		write_log "Updating system partition ${sys_partition}."
 		
 		mount_image_partition $image $img_partition $mnt_img
-		mount_system_partition $sys_partition $mnt_sys
+		mount_system_partition $sys_partition $mnt_s
 		
+		if {$debug} {
+			write_log "ls -la ${mnt_img}"
+			write_log [exec ls -la ${mnt_img}]
+			write_log "ls -la ${mnt_s}"
+			write_log [exec ls -la ${mnt_s}]
+		}
 		write_log "Rsyncing filesystem of partition ${sys_partition}."
-		if [catch {exec rsync ${extra_args} --progress --archive --delete "${mnt_img}/" "${mnt_sys}"} err] {
-			write_log $err
+		if [catch {
+			set out ""
+			if {$dryrun} {
+				if {$debug} {
+					write_log "rsync --dry-run --progress --archive --delete ${mnt_img}/ ${mnt_s}"
+				}
+				set out [exec rsync --dry-run --progress --archive --delete ${mnt_img} ${mnt_s}]
+			} else {
+				if {$debug} {
+					write_log "rsync --progress --archive --delete ${mnt_img}/ ${mnt_s}"
+				}
+				set out [exec rsync --progress --archive --delete ${mnt_img}/ ${mnt_s}]
+			}
+			if {$debug} {
+				write_log $out
+			}
+		} err] {
+			if {$debug} {
+				write_log $err
+			}
 		}
 		write_log "Rsync finished."
+		if {$debug} {
+			write_log "ls -la ${mnt_img}"
+			write_log [exec ls -la ${mnt_img}]
+			write_log "ls -la ${mnt_s}"
+			write_log [exec ls -la ${mnt_s}]
+		}
 		
 		if {$img_partition == 1} {
 			write_log "Update cmdline."
-			if {$dryrun == 0} {
+			if {!$dryrun} {
 				set new_root_partition 2
 				if {$root_partition == 2} {
 					set new_root_partition 3
 				}
-				set part_uuid [rmupdate::get_part_uuid "${sys_dev}p${new_root_partition}"]
-				update_cmdline "${mnt_sys}/cmdline.txt" "PARTUUID=${part_uuid}"
+				set part_uuid [libfirmware::get_part_uuid "${sys_dev}p${new_root_partition}"]
+				update_cmdline "${mnt_s}/cmdline.txt" "PARTUUID=${part_uuid}"
 			}
 		}
 		
 		umount $mnt_img
-		umount $mnt_sys
+		umount $mnt_s
 	}
 }
-
-#proc ::rmupdate::is_firmware_up_to_date {} {
-#	set latest_version [get_latest_firmware_version]
-#	write_log "Latest firmware version: ${latest_version}"
-#	
-#	set current_version [get_current_firmware_version]
-#	write_log "Current firmware version: ${current_version}"
-#	
-#	if {[compare_versions $current_version $latest_version] >= 0} {
-#		return 1
-#	}
-#	return 0
-#}
 
 proc ::rmupdate::get_current_firmware_version {} {
 	set fp [open "/boot/VERSION" r]
@@ -535,16 +562,26 @@ proc ::rmupdate::delete_firmware_image {version} {
 }
 
 proc ::rmupdate::install_firmware_version {version {reboot 1} {dryrun 0}} {
-	if {[rmupdate::install_process_running]} {
+	if {[install_process_running]} {
 		error "Another install process is running."
 	}
-	if {! [rmupdate::is_system_upgradeable]} {
+	if {! [is_system_upgradeable]} {
 		error "System not upgradeable."
 	}
 	
 	variable install_lock
 	variable log_file
 	variable install_log
+	
+	foreach var {install_lock log_file install_log} {
+		set var [set $var]
+		if {$var != ""} {
+			set basedir [file dirname $var]
+			if {![file exists $basedir]} {
+				file mkdir $basedir
+			}
+		}
+	}
 	
 	set fd [open $install_lock "w"]
 	puts $fd [pid]
@@ -581,6 +618,24 @@ proc ::rmupdate::install_firmware_version {version {reboot 1} {dryrun 0}} {
 	if {$reboot && !$dryrun} {
 		exec /sbin/reboot -f
 	}
+}
+
+proc ::rmupdate::install_latest_version {{reboot 1} {dryrun 0}} {
+	set latest_version [get_latest_firmware_version]
+	return install_firmware_version $latest_version $reboot $dryrun
+}
+
+proc ::rmupdate::is_firmware_up_to_date {} {
+	set latest_version [get_latest_firmware_version]
+	write_log "Latest firmware version: ${latest_version}"
+	
+	set current_version [get_current_firmware_version]
+	write_log "Current firmware version: ${current_version}"
+	
+	if {[compare_versions $current_version $latest_version] >= 0} {
+		return 1
+	}
+	return 0
 }
 
 #puts [rmupdate::get_latest_firmware_version]
