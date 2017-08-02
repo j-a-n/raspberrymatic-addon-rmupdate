@@ -121,10 +121,10 @@ proc ::rmupdate::get_partion_start_and_size {device partition} {
 
 proc ::rmupdate::is_system_upgradeable {} {
 	variable sys_dev
-	#if { [rmupdate::get_filesystem_label "${sys_dev}p2"] != "rootfs1" } {
+	#if { [get_filesystem_label "${sys_dev}p2"] != "rootfs1" } {
 	#	return 0
 	#}
-	if { [rmupdate::get_filesystem_label "${sys_dev}p3"] != "rootfs2" } {
+	if { [get_filesystem_label "${sys_dev}p3"] != "rootfs2" } {
 		return 0
 	}
 	return 1
@@ -382,7 +382,7 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 				if {$root_partition == 2} {
 					set new_root_partition 3
 				}
-				set part_uuid [rmupdate::get_part_uuid "${sys_dev}p${new_root_partition}"]
+				set part_uuid [get_part_uuid "${sys_dev}p${new_root_partition}"]
 				update_cmdline "${mnt_s}/cmdline.txt" "PARTUUID=${part_uuid}"
 			}
 		}
