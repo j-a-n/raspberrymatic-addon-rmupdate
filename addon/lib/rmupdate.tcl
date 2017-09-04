@@ -417,7 +417,10 @@ proc ::rmupdate::get_available_firmware_downloads {} {
 				}
 			}
 			#write_log $href
-			lappend download_urls "https://github.com${href}.zip"
+			if {[string first "https://" $href] == -1} {
+				set href "https://github.com${href}"
+			}
+			lappend download_urls "${href}.zip"
 		}
 	}
 	return $download_urls
