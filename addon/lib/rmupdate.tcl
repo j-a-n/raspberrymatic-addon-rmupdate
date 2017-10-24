@@ -463,7 +463,7 @@ proc ::rmupdate::download_firmware {version} {
 	write_log "Download completed."
 	
 	write_log "Extracting firmware ${archive_file}."
-	set data [exec /usr/bin/unzip -ql "${archive_file}"]
+	set data [exec /usr/bin/unzip -ql "${archive_file}" 2>/dev/null]
 	set img_file ""
 	foreach d [split $data "\n"] {
 		regexp {\s+(\S+\.img)\s*$} $d match img_file
@@ -474,7 +474,7 @@ proc ::rmupdate::download_firmware {version} {
 	if { $img_file == "" } {
 		error "Failed to extract image from archive."
 	}
-	exec /usr/bin/unzip "${archive_file}" "${img_file}" -o -d "${img_dir}"
+	exec /usr/bin/unzip "${archive_file}" "${img_file}" -o -d "${img_dir}" 2>/dev/null
 	set img_file "${img_dir}/${img_file}"
 	puts "${img_file} ${image_file}"
 	if {$img_file != $image_file} {
