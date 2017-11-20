@@ -561,7 +561,8 @@ proc ::rmupdate::install_process_running {} {
 
 proc ::rmupdate::delete_firmware_image {version} {
 	variable img_dir
-	eval {file delete [glob "${img_dir}/*${version}.img"]}
+	eval {file delete [glob "${img_dir}/*${version}*.img"]}
+	catch { eval {file delete [glob "${img_dir}/*${version}*.zip"]} }
 }
 
 proc ::rmupdate::install_firmware_version {version {reboot 1} {dryrun 0}} {
