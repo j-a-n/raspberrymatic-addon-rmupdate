@@ -31,7 +31,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<title>RaspberryMatic Update Addon</title>
 	<script>
 		var message_timer_id = null;
-		var installation_running = "";
+		var running_installation = "";
 		var current_firmware = '?';
 		var latest_firmware = '?';
 		
@@ -83,27 +83,39 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
-		function installation_finished() {
-			if (installation_running) {
-				var version = installation_running;
-				$('[data-install-version="' + version + '"]').removeClass('loading');
-				installation_running = "";
-				msg = 'Firmware ' + version + ' successfully installed.'
+		function set_running_installation(installation_info) {
+			var firmware_regex = /firmware\s+(.*)/i;
+			if (running_installation && (!installation_info)) {
+				// Running installation finished
+				var match = firmware_regex.exec(running_installation);
+				if (match != null) {
+					var version = match[1];
+					$('[data-install-firmware-version="' + version + '"]').removeClass('loading');
+				}
+				msg = running_installation + ' successfully installed.'
 				display_message('success', msg, 6000000);
+			}
+			
+			running_installation = installation_info;
+			
+			if (running_installation) {
+				var match = firmware_regex.exec(running_installation);
+				if (match != null) {
+					var version = match[1];
+					$('[data-install-firmware-version="' + version + '"]').addClass('loading');
+				}
 			}
 		}
 		
 		function update_install_log() {
+			rest("GET", "/get_running_installation", null, function(installation_info) {
+				set_running_installation(installation_info);
+			});
 			rest("GET", "/read_install_log", null, function(data) {
-				var regex_success = /INSTALL_FIRMWARE_SUCCESS\n/g;
-				if (regex_success.test(data)) {
-					installation_finished();
-				}
-				data = data.replace(regex_success, "");
 				$('#log-content').html(data.replace(/\n/g, '<br />'));
 				$('#modal-log').modal('refresh');
 				$('#log-content').scrollTop($('#log-content').prop("scrollHeight"));
-				if (installation_running) {
+				if (running_installation) {
 					setTimeout(update_install_log, 1000);
 				}
 			});
@@ -121,32 +133,27 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		function install_firmware(version) {
 			$('#log-content').html('');
 			$('#modal-log').modal('show');
-			if (installation_running) {
-				return false;
-			}
-			installation_running = version;
-			$('[data-install-version="' + installation_running + '"]').addClass('loading');
-			var reboot = $('#reboot-after-install').is(':checked');
-			var dryrun = $('#dryrun').is(':checked');
-			display_message('info', 'Installing firmware ' + version + '.', 6000000);
-			clear_message();
-			rest("POST", "/start_install_firmware", JSON.stringify({"version":version, "reboot":reboot, "dryrun":dryrun}),
-				function(data) {
-					// We are not expecting a response
-					console.log("Firmware installation finished.")
-					installation_finished();
-				},
-				function(xhr, ajaxOptions, thrownError) {
-					console.error("Firmware installation error.")
-					$('[data-install-version="' + installation_running + '"]').removeClass('loading');
-					//$('#modal-log').modal('hide');
-					if (installation_running) {
-						//get_firmware_info();
-						default_error_callback(xhr, ajaxOptions, thrownError);
-						installation_running = "";
+			if (!running_installation) {
+				var reboot = $('#reboot-after-install').is(':checked');
+				var dryrun = $('#dryrun').is(':checked');
+				display_message('info', 'Installing firmware ' + version + '.', 6000000);
+				clear_message();
+				rest("POST", "/start_install_firmware", JSON.stringify({"version":version, "reboot":reboot, "dryrun":dryrun}),
+					function(data) {
+						// We are not expecting a response
+					},
+					function(xhr, ajaxOptions, thrownError) {
+						console.error("Firmware installation error.")
+						$('[data-install-firmware-version="' + running_installation + '"]').removeClass('loading');
+						//$('#modal-log').modal('hide');
+						if (running_installation) {
+							//get_firmware_info();
+							default_error_callback(xhr, ajaxOptions, thrownError);
+						}
+						set_running_installation("");
 					}
-				}
-			);
+				);
+			}
 			setTimeout(update_install_log, 1000);
 		}
 		
@@ -166,13 +173,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					if (fw.latest) color = 'green';
 					if (fw.installed) color = 'gray';
 					var disabled = (fw.image || fw.url ? '' : 'disabled');
-					var binstall = $('<div class="ui '+ color +' basic '+ disabled +' button">').attr('data-install-version', fw.version).append($('<i class="sign in icon">'), 'install');
+					var binstall = $('<div class="ui '+ color +' basic '+ disabled +' button">').attr('data-install-firmware-version', fw.version).append($('<i class="sign in icon">'), 'install');
 					binstall.click(function() {
-						install_firmware(this.getAttribute('data-install-version'));
+						install_firmware(this.getAttribute('data-install-firmware-version'));
 					});
 					var bcls = '';
 					if (!fw.image) bcls = 'disabled';
-					if (fw.version == installation_running) bcls = 'loading';
+					if (fw.version == running_installation) bcls = 'loading';
 					var bdelete = $('<div class="ui orange basic '+ bcls +' button">').attr('data-delete-version', fw.version).append($('<i class="delete icon">'), 'delete download');
 					bdelete.click(function() {
 						delete_firmware_image(this.getAttribute('data-delete-version'));
@@ -204,6 +211,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						$('<div class="ui green basic button" style="margin-top:20px; margin-bottom:20px;">').click(install_latest_firmware).append($('<i class="sign in icon">'), 'Install latest firmware')
 					);
 				}
+				
+				rest("GET", "/get_running_installation", null, function(installation_info) {
+					set_running_installation(installation_info);
+				});
 			});
 		}
 		
@@ -213,6 +224,58 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$("#system-info").append(
 					$('<div class="sub header">').html('Current root partition: ' + data.root_partition)
 				);
+			});
+		}
+		
+		function get_addon_info() {
+			rest("GET", "/get_addon_info", null, function(data) {
+				$('#addon_info tbody').empty();
+				data.forEach(function(addon) {
+					//if (fw.latest) latest_firmware = fw.version;
+					//if (fw.installed) current_firmware = fw.version;
+					//var color = 'yellow';
+					//if (fw.latest) color = 'green';
+					//if (fw.installed) color = 'gray';
+					//var disabled = (fw.image || fw.url ? '' : 'disabled');
+					//var binstall = $('<div class="ui '+ color +' basic '+ disabled +' button">').attr('data-install-firmware-version', fw.version).append($('<i class="sign in icon">'), 'install');
+					//binstall.click(function() {
+					//	install_firmware(this.getAttribute('data-install-firmware-version'));
+					//});
+					//var bcls = '';
+					//if (!fw.image) bcls = 'disabled';
+					//if (fw.version == running_installation) bcls = 'loading';
+					//var bdelete = $('<div class="ui orange basic '+ bcls +' button">').attr('data-delete-version', fw.version).append($('<i class="delete icon">'), 'delete download');
+					//bdelete.click(function() {
+					//	delete_firmware_image(this.getAttribute('data-delete-version'));
+					//});
+					//
+					//var available = (fw.url ? 'checked=""' : '')
+					//var downloaded = (fw.image ? 'checked=""' : '')
+					//var cls = '';
+					//if (fw.installed) cls = ' class="warning"';
+					//if (fw.latest) cls = ' class="positive"';
+					var cls = ' class="positive"';
+					$("#addon_info tbody").append($('<tr' + cls + '>').append(
+						$('<td>').append($('<label>' + addon.name + '</label>')),
+						$('<td>').append($('<label>' + addon.version + '</label>')),
+						$('<td>').append($('<label>' + addon.available_version + '</label>')),
+						$('<td>').append($('<label>' + addon.download_url + '</label>'))
+					));
+				});
+				//var color = "#d01919";
+				//if (current_firmware == latest_firmware) {
+				//	color = "#21BA45";
+				//}
+				//$("#firmware-summary").empty();
+				//$("#firmware-summary").append(
+				//	$('<div class="sub header">').html('Current installed version: <span style="color:'+ color +'">' + current_firmware + '</span>'),
+				//	$('<div class="sub header">').html('Latest available version: ' + latest_firmware)
+				//);
+				//if (current_firmware != latest_firmware) {
+				//	$("#firmware-summary").append(
+				//		$('<div class="ui green basic button" style="margin-top:20px; margin-bottom:20px;">').click(install_latest_firmware).append($('<i class="sign in icon">'), 'Install latest firmware')
+				//	);
+				//}
 			});
 		}
 		
@@ -229,17 +292,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 			get_system_info();
 			get_firmware_info();
+			//get_addon_info();
 		});
 	</script>
 </head>
 <body>
-	<div style="padding-top: 5vw" class="ui container">
+	<div style="padding-top: 5vw; padding-bottom: 5vw" class="ui container">
 		<h1 class="ui header">RaspberryMatic Update</h1>
 		<div id="message" class="ui message hidden">
 		</div>
 		<h2 class="ui dividing header">System info</h2>
 		<div class="content" id="system-info">
 		</div>
+		
 		<h2 class="ui dividing header">Firmwares</h2>
 		<div class="content" id="firmware-summary">
 		</div>
@@ -255,6 +320,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			<tbody>
 			</tbody>
 		</table>
+		
+		<!--
+		<h2 class="ui dividing header">Addons</h2>
+		<table id="addon_info" class="ui celled stackable table">
+			<thead>
+				<tr>
+					<th>Name</th>
+					<th>Version</th>
+					<th class="center aligned">Available</th>
+					<th class="center aligned">Action</th>
+				</tr>
+			</thead>
+			<tbody>
+			</tbody>
+		</table>
+		-->
+		
 		<div class="ui checkbox">
 			<input id="dryrun" type="checkbox">
 			<label>Perform a trial run with no changes made</label>

@@ -22,33 +22,57 @@ source /usr/local/addons/rmupdate/lib/rmupdate.tcl
 proc usage {} {
 	global argv0
 	puts stderr ""
-	puts stderr "usage: ${argv0} <command>"
+	puts stderr "usage: ${argv0} <module> <command>"
 	puts stderr ""
 	puts stderr "possible commands:"
-	puts stderr "  show_current      : show current firmware version"
-	puts stderr "  show_latest       : show latest available firmware version"
-	puts stderr "  install_latest    : install latest available firmware version"
-	puts stderr "  install <version> : install firmware VERSION"
+	puts stderr "  firmware show_current      : show current firmware version"
+	puts stderr "  firmware show_latest       : show latest available firmware version"
+	puts stderr "  firmware install_latest    : install latest available firmware version"
+	puts stderr "  firmware install <version> : install firmware VERSION"
+	puts stderr "  addons list                : list installed addons and versions"
 }
 
 proc main {} {
 	global argc
 	global argv
 	
-	set cmd [string tolower [lindex $argv 0]]
+	set mod [string tolower [lindex $argv 0]]
+	set cmd [string tolower [lindex $argv 1]]
 	
-	if {$cmd == "show_current"} {
-		puts [rmupdate::get_current_firmware_version]
-	} elseif {$cmd == "show_latest"} {
-		puts [rmupdate::get_latest_firmware_version]
-	} elseif {$cmd == "install_latest"} {
-		rmupdate::install_firmware_version [rmupdate::get_latest_firmware_version]
-	} elseif {$cmd == "install"} {
-		if {$argc < 2} {
+	if {$mod == "firmware"} {
+		if {$cmd == "show_current"} {
+			puts [rmupdate::get_current_firmware_version]
+		} elseif {$cmd == "show_latest"} {
+			puts [rmupdate::get_latest_firmware_version]
+		} elseif {$cmd == "install_latest"} {
+			rmupdate::install_firmware_version [rmupdate::get_latest_firmware_version]
+		} elseif {$cmd == "install"} {
+			if {$argc < 2} {
+				usage
+				exit 1
+			}
+			rmupdate::install_firmware_version [lindex $argv 1]
+		} else {
 			usage
 			exit 1
 		}
-		rmupdate::install_firmware_version [lindex $argv 1]
+	} elseif {$mod == "addons"} {
+		if {$cmd == "list"} {
+			array set addons [rmupdate::get_addon_info]
+			set keys [array names addons]
+			set keys [lsort $keys]
+			foreach key $keys {
+				set tmp [split $key "::"]
+				set addon_id [lindex $tmp 0]
+				set opt [lindex $tmp 2]
+				if {$opt == "version"} {
+					puts "${addon_id}: $addons($key)"
+				}
+			}
+		} else {
+			usage
+			exit 1
+		}
 	} else {
 		usage
 		exit 1

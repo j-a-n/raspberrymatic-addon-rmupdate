@@ -19,19 +19,6 @@
 
 source /usr/local/addons/rmupdate/lib/rmupdate.tcl
 
-proc json_string {str} {
-	set replace_map {
-		"\"" "\\\""
-		"\\" "\\\\"
-		"\b"  "\\b"
-		"\f"  "\\f"
-		"\n"  "\\n"
-		"\r"  "\\r"
-		"\t"  "\\t"
-	}
-	return "[string map $replace_map $str]"
-}
-
 proc process {} {
 	global env
 	if { [info exists env(QUERY_STRING)] } {
@@ -50,6 +37,8 @@ proc process {} {
 		} elseif {[lindex $path 1] == "get_system_info"} {
 			set root_partition [rmupdate::get_current_root_partition]
 			return "\{\"root_partition\":${root_partition}\}"
+		} elseif {[lindex $path 1] == "get_addon_info"} {
+			return [rmupdate::get_addon_info 1 1 1]
 		} elseif {[lindex $path 1] == "start_install_firmware"} {
 			regexp {\"version\"\s*:\s*\"([\d\.]+)\"} $data match version
 			regexp {\"reboot\"\s*:\s*(true|false)} $data match reboot
@@ -88,6 +77,8 @@ proc process {} {
 			} else {
 				return "false"
 			}
+		} elseif {[lindex $path 1] == "get_running_installation"} {
+			return "\"[rmupdate::get_running_installation]\""
 		} elseif {[lindex $path 1] == "read_install_log"} {
 			variable content_type "text/html"
 			return [rmupdate::read_install_log]

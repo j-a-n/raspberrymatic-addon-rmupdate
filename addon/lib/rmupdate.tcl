@@ -19,6 +19,8 @@
 namespace eval rmupdate {
 	variable release_url "https://github.com/jens-maus/RaspberryMatic/releases"
 	variable addon_dir "/usr/local/addons/rmupdate"
+	variable rc_dir "/usr/local/etc/config/rc.d"
+	variable addons_www_dir "/usr/local/etc/config/addons/www"
 	variable img_dir "/usr/local/addons/rmupdate/var/img"
 	variable mnt_sys "/usr/local/addons/rmupdate/var/mnt_sys"
 	variable mnt_img "/usr/local/addons/rmupdate/var/mnt_img"
@@ -26,8 +28,24 @@ namespace eval rmupdate {
 	variable loop_dev "/dev/loop7"
 	variable install_log "/usr/local/addons/rmupdate/var/install.log"
 	variable install_lock "/usr/local/addons/rmupdate/var/install.lock"
-	variable log_file ""
-	variable debug 0
+	variable log_file "/tmp/rmupdate-addon-log.txt"
+	variable log_level 0
+	variable lock_start_port 12100
+	variable lock_socket
+	variable lock_id_log_file 1
+}
+
+proc json_string {str} {
+	set replace_map {
+		"\"" "\\\""
+		"\\" "\\\\"
+		"\b"  "\\b"
+		"\f"  "\\f"
+		"\n"  "\\n"
+		"\r"  "\\r"
+		"\t"  "\\t"
+	}
+	return "[string map $replace_map $str]"
 }
 
 proc ::rmupdate::get_rpi_version {} {
@@ -79,14 +97,46 @@ proc ::rmupdate::compare_versions {a b} {
 	return [package vcompare $a $b]
 }
 
-proc ::rmupdate::write_log {str} {
+# error=1, warning=2, info=3, debug=4
+proc ::rmupdate::write_log {lvl str {lock 1}} {
+	variable log_level
 	variable log_file
-	puts stderr $str
-	if {$log_file != ""} {
+	variable lock_id_log_file
+	if {$lvl <= $log_level && $log_file != ""} {
+		if {$lock == 1} {
+			acquire_lock $lock_id_log_file
+		}
 		set fd [open $log_file "a"]
-		puts $fd $str
+		set date [clock seconds]
+		set date [clock format $date -format {%Y-%m-%d %T}]
+		set process_id [pid]
+		puts $fd "\[${lvl}\] \[${date}\] \[${process_id}\] ${str}"
 		close $fd
+		#puts "\[${lvl}\] \[${date}\] \[${process_id}\] ${str}"
+		if {$lock == 1} {
+			release_lock $lock_id_log_file
+		}
 	}
+}
+
+proc ::rmupdate::read_log {} {
+	variable log_file
+	if { ![file exist $log_file] } {
+		return ""
+	}
+	set fp [open $log_file r]
+	set data [read $fp]
+	close $fp
+	return $data
+}
+
+proc ::rmupdate::write_install_log {str} {
+	variable install_log
+	write_log 4 $str
+	puts stderr $str
+	set fd [open $install_log "a"]
+	puts $fd $str
+	close $fd
 }
 
 proc ::rmupdate::read_install_log {} {
@@ -98,6 +148,37 @@ proc ::rmupdate::read_install_log {} {
 	set data [read $fp]
 	close $fp
 	return $data
+}
+
+proc ::rmupdate::acquire_lock {lock_id} {
+	variable lock_socket
+	variable lock_start_port
+	set port [expr { $lock_start_port + $lock_id }]
+	set tn 0
+	# 'socket already in use' error will be our lock detection mechanism
+	while {1} {
+		set tn [expr {$tn + 1}]
+		if { [catch {socket -server dummy_accept $port} sock] } {
+			if {$tn > 10} {
+				write_log 1 "Failed to acquire lock ${lock_id} after 2500ms, ignoring lock" 0
+				break
+			}
+			after 25
+		} else {
+			set lock_socket($lock_id) $sock
+			break
+		}
+	}
+}
+
+proc ::rmupdate::release_lock {lock_id} {
+	variable lock_socket
+	if {[info exists lock_socket($lock_id)]} {
+		if { [catch {close $lock_socket($lock_id)} errormsg] } {
+			write_log 1 "Error '${errormsg}' on closing socket for lock '${lock_id}'" 0
+		}
+		unset lock_socket($lock_id)
+	}
 }
 
 proc ::rmupdate::version {} {
@@ -210,10 +291,10 @@ proc ::rmupdate::update_fstab {fstab {boot ""} {root ""} {user ""}} {
 proc ::rmupdate::mount_image_partition {image partition mountpoint} {
 	variable loop_dev
 	
-	write_log "Mounting parition ${partition} of image ${image}."
+	write_install_log "Mounting parition ${partition} of image ${image}."
 
 	set p [get_partion_start_and_size $image $partition]
-	#write_log "Partiton start=[lindex $p 0], size=[lindex $p 1]."
+	write_log 4 "Partiton start=[lindex $p 0], size=[lindex $p 1]."
 	
 	file mkdir $mountpoint
 	catch {exec /bin/umount "${mountpoint}"}
@@ -241,9 +322,9 @@ proc ::rmupdate::mount_system_partition {partition mountpoint} {
 	}
 	
 	if {$remount} {
-		write_log "Remounting filesystem ${partition} (rw)."
+		write_install_log "Remounting filesystem ${partition} (rw)."
 	} else {
-		write_log "Mounting device ${partition} (rw)."
+		write_install_log "Mounting device ${partition} (rw)."
 	}
 	
 	if {![file exists $mountpoint]} {
@@ -286,7 +367,7 @@ proc ::rmupdate::check_sizes {image} {
 	variable mnt_img
 	variable mnt_sys
 	
-	write_log "Checking size of filesystems."
+	write_install_log "Checking size of filesystems."
 	
 	file mkdir $mnt_img
 	file mkdir $mnt_sys
@@ -300,7 +381,7 @@ proc ::rmupdate::check_sizes {image} {
 		set su_cur [get_filesystem_size_and_usage $mnt_sys]
 		set cur_size [lindex $su_cur 0]
 		
-		write_log "Current filesystem (${partition}) size: ${cur_size}, new filesystem used bytes: ${new_used}."
+		write_install_log "Current filesystem (${partition}) size: ${cur_size}, new filesystem used bytes: ${new_used}."
 		
 		umount $mnt_img
 		umount $mnt_sys
@@ -309,18 +390,18 @@ proc ::rmupdate::check_sizes {image} {
 			error "Current filesystem of partition $partition (${cur_size} bytes) not big enough (new usage: ${new_used} bytes)."
 		}
 	}
-	write_log "Sizes of filesystems checked successfully."
+	write_install_log "Sizes of filesystems checked successfully."
 }
 
 proc ::rmupdate::update_filesystems {image {dryrun 0}} {
+	variable log_level
 	variable mnt_img
 	variable mnt_sys
 	variable sys_dev
-	variable debug
 	
 	set root_partition [get_current_root_partition]
 	
-	write_log "Updating filesystems."
+	write_install_log "Updating filesystems."
 	
 	file mkdir $mnt_img
 	file mkdir $mnt_sys
@@ -334,49 +415,41 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 		if {$sys_partition == 1} {
 			set mnt_s "/boot"
 		}
-		write_log "Updating system partition ${sys_partition}."
+		write_install_log "Updating system partition ${sys_partition}."
 		
 		mount_image_partition $image $img_partition $mnt_img
 		mount_system_partition $sys_partition $mnt_s
 		
-		if {$debug} {
-			write_log "ls -la ${mnt_img}"
-			write_log [exec ls -la ${mnt_img}]
-			write_log "ls -la ${mnt_s}"
-			write_log [exec ls -la ${mnt_s}]
+		if {$log_level >= 4} {
+			write_log 4 "ls -la ${mnt_img}"
+			write_log 4 [exec ls -la ${mnt_img}]
+			write_log 4 "ls -la ${mnt_s}"
+			write_log 4 [exec ls -la ${mnt_s}]
 		}
-		write_log "Rsyncing filesystem of partition ${sys_partition}."
+		write_install_log "Rsyncing filesystem of partition ${sys_partition}."
 		if [catch {
 			set out ""
 			if {$dryrun} {
-				if {$debug} {
-					write_log "rsync --dry-run --progress --archive --delete ${mnt_img}/ ${mnt_s}"
-				}
+				write_log 4 "rsync --dry-run --progress --archive --delete ${mnt_img}/ ${mnt_s}"
 				set out [exec rsync --dry-run --progress --archive --delete ${mnt_img} ${mnt_s}]
 			} else {
-				if {$debug} {
-					write_log "rsync --progress --archive --delete ${mnt_img}/ ${mnt_s}"
-				}
+				write_log 4 "rsync --progress --archive --delete ${mnt_img}/ ${mnt_s}"
 				set out [exec rsync --progress --archive --delete ${mnt_img}/ ${mnt_s}]
 			}
-			if {$debug} {
-				write_log $out
-			}
+			write_log 4 $out
 		} err] {
-			if {$debug} {
-				write_log $err
-			}
+			write_log 4 $err
 		}
-		write_log "Rsync finished."
-		if {$debug} {
-			write_log "ls -la ${mnt_img}"
-			write_log [exec ls -la ${mnt_img}]
-			write_log "ls -la ${mnt_s}"
-			write_log [exec ls -la ${mnt_s}]
+		write_install_log "Rsync finished."
+		if {$log_level >= 4} {
+			write_log 4 "ls -la ${mnt_img}"
+			write_log 4 [exec ls -la ${mnt_img}]
+			write_log 4 "ls -la ${mnt_s}"
+			write_log 4 [exec ls -la ${mnt_s}]
 		}
 		
 		if {$img_partition == 1} {
-			write_log "Update cmdline."
+			write_install_log "Update cmdline."
 			if {!$dryrun} {
 				set new_root_partition 2
 				if {$root_partition == 2} {
@@ -416,7 +489,7 @@ proc ::rmupdate::get_available_firmware_downloads {} {
 					continue
 				}
 			}
-			#write_log $href
+			#write_log 4 $href
 			if {[string first "https://" $href] == -1} {
 				set href "https://github.com${href}"
 			}
@@ -438,6 +511,8 @@ proc ::rmupdate::get_latest_firmware_version {} {
 proc ::rmupdate::download_firmware {version} {
 	variable img_dir
 	variable log_file
+	variable install_log
+	
 	set image_file "${img_dir}/RaspberryMatic-${version}.img"
 	set download_url ""
 	foreach e [get_available_firmware_downloads] {
@@ -450,19 +525,19 @@ proc ::rmupdate::download_firmware {version} {
 	if {$download_url == ""} {
 		error "Failed to get url for firmware ${version}"
 	}
-	write_log "Downloading firmware from ${download_url}."
+	write_install_log "Downloading firmware from ${download_url}."
 	regexp {/([^/]+)$} $download_url match archive_file
 	set archive_file "${img_dir}/${archive_file}"
 	file mkdir $img_dir
 	if {$log_file != ""} {
-		exec /usr/bin/wget "${download_url}" --show-progress --progress=dot:giga --no-check-certificate --quiet --output-document=$archive_file 2>>${log_file}
-		write_log ""
+		exec /usr/bin/wget "${download_url}" --show-progress --progress=dot:giga --no-check-certificate --quiet --output-document=$archive_file 2>>${install_log}
+		write_install_log ""
 	} else {
 		exec /usr/bin/wget "${download_url}" --no-check-certificate --quiet --output-document=$archive_file
 	}
-	write_log "Download completed."
+	write_install_log "Download completed."
 	
-	write_log "Extracting firmware ${archive_file}."
+	write_install_log "Extracting firmware ${archive_file}."
 	set data [exec /usr/bin/unzip -ql "${archive_file}" 2>/dev/null]
 	set img_file ""
 	foreach d [split $data "\n"] {
@@ -540,44 +615,13 @@ proc ::rmupdate::get_firmware_info {} {
 	return $json
 }
 
-proc ::rmupdate::install_process_running {} {
+proc ::rmupdate::set_running_installation {installation_info} {
 	variable install_lock
-	
-	if {! [file exists $install_lock]} {
-		return 0
-	}
-	
-	set fp [open $install_lock "r"]
-	set lpid [string trim [read $fp]]
-	close $fp
-	
-	if {[file exists "/proc/${lpid}"]} {
-		return 1
-	}
-	
-	file delete $install_lock
-	return 0
-}
-
-proc ::rmupdate::delete_firmware_image {version} {
-	variable img_dir
-	eval {file delete [glob "${img_dir}/*${version}*.img"]}
-	catch { eval {file delete [glob "${img_dir}/*${version}*.zip"]} }
-}
-
-proc ::rmupdate::install_firmware_version {version {reboot 1} {dryrun 0}} {
-	if {[install_process_running]} {
-		error "Another install process is running."
-	}
-	if {! [is_system_upgradeable]} {
-		error "System not upgradeable."
-	}
-	
-	variable install_lock
-	variable log_file
 	variable install_log
 	
-	foreach var {install_lock log_file install_log} {
+	write_log 4 "Set running installation: ${installation_info}"
+	
+	foreach var {install_log install_lock} {
 		set var [set $var]
 		if {$var != ""} {
 			set basedir [file dirname $var]
@@ -587,12 +631,61 @@ proc ::rmupdate::install_firmware_version {version {reboot 1} {dryrun 0}} {
 		}
 	}
 	
-	set fd [open $install_lock "w"]
-	puts $fd [pid]
-	close $fd
+	if {$installation_info != ""} {
+		set fd [open $install_lock "w"]
+		puts $fd [pid]
+		puts $fd $installation_info
+		close $fd
+		
+		if {[file exists $install_log]} {
+			write_log 4 "Deleting: ${install_log}"
+			file delete $install_log
+		}
+	} elseif {[file exists $install_lock]} {
+		file delete $install_lock
+	}
+}
+
+proc ::rmupdate::get_running_installation {} {
+	variable install_lock
 	
-	file delete $install_log
-	set log_file $install_log
+	if {! [file exists $install_lock]} {
+		return ""
+	}
+	
+	set fp [open $install_lock "r"]
+	set data [read $fp]
+	close $fp
+	
+	set tmp [split $data "\n"]
+	set lpid [string trim [lindex $tmp 0]]
+	set installation_info [string trim [lindex $tmp 1]]
+	
+	if {[file exists "/proc/${lpid}"]} {
+		return $installation_info
+	}
+	
+	write_log 4 "Deleting: ${install_lock}"
+	file delete $install_lock
+	return ""
+}
+
+proc ::rmupdate::delete_firmware_image {version} {
+	variable img_dir
+	eval {file delete [glob "${img_dir}/*${version}*.img"]}
+	catch { eval {file delete [glob "${img_dir}/*${version}*.zip"]} }
+}
+
+proc ::rmupdate::install_firmware_version {version {reboot 1} {dryrun 0}} {
+	if {[get_running_installation] != ""} {
+		error "Another install process is running."
+	}
+	if {! [is_system_upgradeable]} {
+		error "System not upgradeable."
+	}
+	
+	set_running_installation "Firmware ${version}"
+	
 	set firmware_image ""
 	
 	foreach e [get_available_firmware_images] {
@@ -609,14 +702,12 @@ proc ::rmupdate::install_firmware_version {version {reboot 1} {dryrun 0}} {
 	check_sizes $firmware_image
 	update_filesystems $firmware_image $dryrun
 	
-	file delete $install_lock
+	set_running_installation ""
 	
 	if {$reboot && !$dryrun} {
-		write_log "Rebooting system."
+		write_install_log "Rebooting system."
 	}
 	
-	# Write success marker for web interface
-	write_log "INSTALL_FIRMWARE_SUCCESS"
 	after 5000
 	
 	if {$reboot && !$dryrun} {
@@ -631,16 +722,198 @@ proc ::rmupdate::install_latest_version {{reboot 1} {dryrun 0}} {
 
 proc ::rmupdate::is_firmware_up_to_date {} {
 	set latest_version [get_latest_firmware_version]
-	write_log "Latest firmware version: ${latest_version}"
+	write_install_log "Latest firmware version: ${latest_version}"
 	
 	set current_version [get_current_firmware_version]
-	write_log "Current firmware version: ${current_version}"
+	write_install_log "Current firmware version: ${current_version}"
 	
 	if {[compare_versions $current_version $latest_version] >= 0} {
 		return 1
 	}
 	return 0
 }
+
+proc ::rmupdate::get_addon_info {{fetch_available_versions 0} {fetch_download_url 0} {as_json 0}} {
+	variable rc_dir
+	variable addons_www_dir
+	array set addons {}
+	foreach f [glob ${rc_dir}/*] {
+		catch {
+			set data [exec $f info]
+			set id [file tail $f]
+			set addons(${id}::id) $id
+			set addons(${id}::name) ""
+			set addons(${id}::version) ""
+			set addons(${id}::update) ""
+			set addons(${id}::config_url) ""
+			set addons(${id}::operations) ""
+			set addons(${id}::download_url) ""
+			foreach line [split $data "\n"] {
+				regexp {^(\S+)\s*:\s*(\S.*)\s*$} $line match key value
+				if { [info exists key] } {
+					set keyl [string tolower $key]
+					if {$keyl == "name" || $keyl == "version" || $keyl == "update" || $keyl == "config-url" || $keyl == "operations"} {
+						if {$keyl == "config-url"} {
+							set keyl "config_url"
+						}
+						set addons(${id}::${keyl}) $value
+						if {$keyl == "update" && $fetch_available_versions == 1} {
+							catch {
+								set cgi "${addons_www_dir}/[string range $value 8 end]"
+								set available_version [exec tclsh "$cgi"]
+								set addons(${id}::available_version) $available_version
+							}
+						}
+					}
+					unset key
+				}
+			}
+		}
+	}
+	if {$fetch_download_url == 1} {
+		write_log 3 "Fetching download urls"
+		foreach key [array names addons] {
+			set tmp [split $key "::"]
+			set addon_id [lindex $tmp 0]
+			set opt [lindex $tmp 2]
+			if {$opt == "update" && $addons($key) != ""} {
+				set available_version $addons(${addon_id}::available_version)
+				set url "http://localhost/$addons($key)?cmd=download&version=${available_version}"
+				catch {
+					write_log 4 "Get: ${url}"
+					set data [exec /usr/bin/wget "${url}" --quiet --output-document=-]
+					write_log 4 "Response: ${data}"
+					regexp {url=([^\s\"\']+)} $data match download_url
+					if { [info exists download_url] } {
+						write_log 4 "Extracted url from response: ${download_url}"
+						set data2 ""
+						catch {
+							set data2 [exec /usr/bin/wget --no-check-certificate --spider "${download_url}"]
+						} data2
+						if {$data2 != ""} {
+							regexp {Length:.*\[([^\]]+)\]} $data2 match content_type
+							if { [info exists content_type] } {
+								write_log 4 "Content type of ${download_url} is ${content_type}"
+								if {$content_type == "application/octet-stream"} {
+									write_log 3 "Download url for addon ${addon_id}: ${download_url}"
+									set addons(${addon_id}::download_url) $download_url
+								} else {
+									# Not a direct download link
+									set data3 [exec /usr/bin/wget --no-check-certificate --quiet --output-document=- "${download_url}"]
+									set best_prio 0
+									set best_href ""
+									regsub -all {\.} $available_version "\\." regex_version
+									set regex_version "\[^\\d\]\[\\.\\-\\_v\]${regex_version}\[\\.\\-\\_\]\[^\\d\]"
+									foreach d [split $data3 ">"] {
+										set href ""
+										regexp {<\s*a\s+href\s*=\s*"([^"]+\.tar.gz)"} $d match href
+										if { [info exists href] && $href != ""} {
+											set prio 0
+											if {$best_prio == 0} {
+												# First link on page
+												set prio [expr {$prio + 1}]
+											}
+											regexp $regex_version $href m v
+											if { [info exists m] } {
+												# version match
+												set prio [expr {$prio + 3}]
+												unset m
+											}
+											if {[string first "download" $href] > -1} {
+												set prio [expr {$prio + 2}]
+											}
+											if {[string first "ccurm" $href] > -1} {
+												set prio [expr {$prio + 2}]
+											}
+											if {$prio > $best_prio} {
+												set best_prio $prio
+												set best_href $href
+											}
+											write_log 4 "Href found: ${href} (prio=${prio})"
+										}
+									}
+									if {$best_href != ""} {
+										set tmp2 [split $download_url "/"]
+										if {[string first "http://" $best_href] == 0} {
+											# absolute link
+										} elseif {[string first "https://" $best_href] == 0} {
+											# absolute link
+										} elseif {[string first "/" $best_href] == 0} {
+											set best_href "[lindex $tmp2 0]//[lindex $tmp2 2]${best_href}"
+										} else {
+											set best_href "${download_url}/${best_href}"
+										}
+										write_log 3 "Download url for addon ${addon_id}: ${best_href}"
+										set addons(${addon_id}::download_url) $best_href
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	#if {$as_json == 1} {
+	#	set json "\{"
+	#	set keys [array names addons]
+	#	set keys [lsort $keys]
+	#	set cur_addon_id ""
+	#	foreach key $keys {
+	#		set tmp [split $key "::"]
+	#		set addon_id [lindex $tmp 0]
+	#		set opt [lindex $tmp 2]
+	#		if {$cur_addon_id != $addon_id} {
+	#			if {$cur_addon_id != ""} {
+	#				set json [string range $json 0 end-1]
+	#				append json "\},"
+	#			}
+	#			append json "\"${addon_id}\":\{"
+	#			set cur_addon_id $addon_id
+	#		}
+	#		set val [json_string $addons($key)]
+	#		append json "\"${opt}\":\"${val}\","
+	#	}
+	#	if {$cur_addon_id != ""} {
+	#		set json [string range $json 0 end-1]
+	#		append json "\}"
+	#	}
+	#	append json "\}"
+	#	return $json
+	#}
+	
+	if {$as_json == 1} {
+		set json "\["
+		set keys [array names addons]
+		set keys [lsort $keys]
+		set cur_addon_id ""
+		foreach key $keys {
+			set tmp [split $key "::"]
+			set addon_id [lindex $tmp 0]
+			set opt [lindex $tmp 2]
+			if {$cur_addon_id != $addon_id} {
+				if {$cur_addon_id != ""} {
+					set json [string range $json 0 end-1]
+					append json "\},"
+				}
+				append json "\{"
+				set cur_addon_id $addon_id
+			}
+			set val [json_string $addons($key)]
+			append json "\"${opt}\":\"${val}\","
+		}
+		if {$cur_addon_id != ""} {
+			set json [string range $json 0 end-1]
+			append json "\}"
+		}
+		append json "\]"
+		return $json
+	} else {
+		return [array get addons]
+	}
+}
+
 
 #puts [rmupdate::get_latest_firmware_version]
 #puts [rmupdate::get_firmware_info]
@@ -657,3 +930,5 @@ proc ::rmupdate::is_firmware_up_to_date {} {
 #rmupdate::umount $rmupdate::mnt_sys
 #puts [rmupdate::get_rpi_version]
 #puts [rmupdate::get_part_uuid "/dev/mmcblk0p3"]
+#puts [rmupdate::get_addon_info 1 1]
+
