@@ -64,6 +64,13 @@ proc process {} {
 			} else {
 				error "Invalid version: ${data}"
 			}
+		} elseif {[lindex $path 1] == "install_addon"} {
+			regexp {\"addon_id\"\s*:\s*\"([^\"]+)\"} $data match addon_id
+			if { [info exists addon_id] && $addon_id != "" } {
+				return "\"[rmupdate::install_addon $addon_id]\""
+			} else {
+				error "Invalid addon_id: ${addon_id}"
+			}
 		} elseif {[lindex $path 1] == "delete_firmware_image"} {
 			regexp {\"version\"\s*:\s*\"([\d\.]+)\"} $data match version
 			if { [info exists version] && $version != "" } {

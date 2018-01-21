@@ -143,7 +143,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						// We are not expecting a response
 					},
 					function(xhr, ajaxOptions, thrownError) {
-						console.error("Firmware installation error.")
+						console.error("Firmware installation error: " + thrownError + ": " + xhr.responseText);
 						$('[data-install-firmware-version="' + running_installation + '"]').removeClass('loading');
 						//$('#modal-log').modal('hide');
 						if (running_installation) {
@@ -164,8 +164,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function get_firmware_info() {
+			$('#dimmer-firmware-info').addClass('active');
 			rest("GET", "/get_firmware_info", null, function(data) {
-				$('#firmware_info tbody').empty();
+				$('#firmware-info tbody').empty();
 				data.forEach(function(fw) {
 					if (fw.latest) latest_firmware = fw.version;
 					if (fw.installed) current_firmware = fw.version;
@@ -190,7 +191,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					var cls = '';
 					if (fw.installed) cls = ' class="warning"';
 					if (fw.latest) cls = ' class="positive"';
-					$("#firmware_info tbody").append($('<tr' + cls + '>').append(
+					$("#firmware-info tbody").append($('<tr' + cls + '>').append(
 						$('<td>').append($('<a>', {text: fw.version, title: 'Open release info', href: fw.info_url, target: "_blank"})),
 						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+available+'>'),$('<label></label>'))),
 						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+downloaded+'>'),$('<label></label>'))),
@@ -215,6 +216,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				rest("GET", "/get_running_installation", null, function(installation_info) {
 					set_running_installation(installation_info);
 				});
+				$('#dimmer-firmware-info').removeClass('active');
 			});
 		}
 		
@@ -227,55 +229,69 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
+		function install_addon(addon_id) {
+			if (!running_installation) {
+				display_message('info', 'Installing addon ' + addon_id + '.', 6000000);
+				$('[data-update-addon-id="' + addon_id + '"]').addClass('loading');
+				$('[data-update-addon-id="' + addon_id + '"]').addClass('disabled');
+				rest("POST", "/install_addon", JSON.stringify({"addon_id":addon_id}),
+					function(data) {
+						//console.info(data);
+						$('[data-update-addon-id="' + addon_id + '"]').removeClass('loading');
+						$('[data-update-addon-id="' + addon_id + '"]').removeClass('disabled');
+						$('#tr-' + addon_id).removeClass('warning');
+						$('#tr-' + addon_id).addClass('positive');
+						$('#button-update-' + addon_id).removeClass('green');
+						$('#button-update-' + addon_id).addClass('gray');
+						$('#label-version-' + addon_id).text($('#label-available-version-' + addon_id).text());
+						display_message('success', data, 6000000);
+					},
+					function(xhr, ajaxOptions, thrownError) {
+						console.error("Addon installation error: " + thrownError + ": " + xhr.responseText);
+						$('[data-update-addon-id="' + addon_id + '"]').removeClass('loading');
+						$('[data-update-addon-id="' + addon_id + '"]').removeClass('disabled');
+						default_error_callback(xhr, ajaxOptions, thrownError);
+					}
+				);
+			}
+		}
+		
 		function get_addon_info() {
+			$('#dimmer-addon-info').addClass('active');
 			rest("GET", "/get_addon_info", null, function(data) {
-				$('#addon_info tbody').empty();
+				$('#addon-info tbody').empty();
 				data.forEach(function(addon) {
-					//if (fw.latest) latest_firmware = fw.version;
-					//if (fw.installed) current_firmware = fw.version;
-					//var color = 'yellow';
-					//if (fw.latest) color = 'green';
-					//if (fw.installed) color = 'gray';
-					//var disabled = (fw.image || fw.url ? '' : 'disabled');
-					//var binstall = $('<div class="ui '+ color +' basic '+ disabled +' button">').attr('data-install-firmware-version', fw.version).append($('<i class="sign in icon">'), 'install');
-					//binstall.click(function() {
-					//	install_firmware(this.getAttribute('data-install-firmware-version'));
-					//});
-					//var bcls = '';
-					//if (!fw.image) bcls = 'disabled';
-					//if (fw.version == running_installation) bcls = 'loading';
-					//var bdelete = $('<div class="ui orange basic '+ bcls +' button">').attr('data-delete-version', fw.version).append($('<i class="delete icon">'), 'delete download');
-					//bdelete.click(function() {
-					//	delete_firmware_image(this.getAttribute('data-delete-version'));
-					//});
-					//
-					//var available = (fw.url ? 'checked=""' : '')
-					//var downloaded = (fw.image ? 'checked=""' : '')
-					//var cls = '';
-					//if (fw.installed) cls = ' class="warning"';
-					//if (fw.latest) cls = ' class="positive"';
-					var cls = ' class="positive"';
-					$("#addon_info tbody").append($('<tr' + cls + '>').append(
+					var color = 'gray';
+					if (addon.available_version && (addon.version != addon.available_version)) color = 'green';
+					
+					var disabled = ((addon.available_version && addon.download_url) ? '' : 'disabled');
+					var bupdate = $('<div class="ui '+ color +' basic '+ disabled +' button" id="button-update-' + addon.id + '">')
+						.attr('data-update-addon-id', addon.id)
+						.attr('data-update-addon-available-version', addon.available_version)
+						.append($('<i class="sign in icon">'), 'update');
+					bupdate.click(function() {
+						install_addon(this.getAttribute('data-update-addon-id'));
+					});
+					
+					disabled = ((addon.config_url) ? '' : 'disabled');
+					var bconfig = $('<div class="ui blue basic '+ disabled +' button">')
+						.attr('data-addon-config-url', addon.config_url)
+						.append($('<i class="setting icon">'), 'open config');
+					bconfig.click(function() {
+						var win = window.open(this.getAttribute('data-addon-config-url'), '_blank');
+						win.focus();
+					});
+					
+					var cls = (((!addon.available_version) || (addon.version == addon.available_version)) ? "positive" : "warning");
+					var available_version = ((addon.available_version) ? addon.available_version : "?");
+					$("#addon-info tbody").append($('<tr class="' + cls + '" id="tr-' + addon.id + '">').append(
 						$('<td>').append($('<label>' + addon.name + '</label>')),
-						$('<td>').append($('<label>' + addon.version + '</label>')),
-						$('<td>').append($('<label>' + addon.available_version + '</label>')),
-						$('<td>').append($('<label>' + addon.download_url + '</label>'))
+						$('<td>').append($('<label id="label-version-' + addon.id + '">' + addon.version + '</label>')),
+						$('<td>').append($('<label id="label-available-version-' + addon.id + '">' + available_version + '</label>')),
+						$('<td class="center aligned">').append(bupdate, bconfig)
 					));
 				});
-				//var color = "#d01919";
-				//if (current_firmware == latest_firmware) {
-				//	color = "#21BA45";
-				//}
-				//$("#firmware-summary").empty();
-				//$("#firmware-summary").append(
-				//	$('<div class="sub header">').html('Current installed version: <span style="color:'+ color +'">' + current_firmware + '</span>'),
-				//	$('<div class="sub header">').html('Latest available version: ' + latest_firmware)
-				//);
-				//if (current_firmware != latest_firmware) {
-				//	$("#firmware-summary").append(
-				//		$('<div class="ui green basic button" style="margin-top:20px; margin-bottom:20px;">').click(install_latest_firmware).append($('<i class="sign in icon">'), 'Install latest firmware')
-				//	);
-				//}
+				$('#dimmer-addon-info').removeClass('active');
 			});
 		}
 		
@@ -292,7 +308,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 			get_system_info();
 			get_firmware_info();
-			//get_addon_info();
+			get_addon_info();
 		});
 	</script>
 </head>
@@ -308,44 +324,53 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		<h2 class="ui dividing header">Firmwares</h2>
 		<div class="content" id="firmware-summary">
 		</div>
-		<table id="firmware_info" class="ui celled stackable table">
-			<thead>
-				<tr>
-					<th>Version</th>
-					<th class="center aligned">Available</th>
-					<th class="center aligned">Downloaded</th>
-					<th class="center aligned">Action</th>
-				</tr>
-			</thead>
-			<tbody>
-			</tbody>
-		</table>
 		
-		<!--
+		<div class="dimmable">
+			<div id="dimmer-firmware-info" class="ui active inverted dimmer">
+				<div class="ui loader">Loading</div>
+			</div>
+			<table id="firmware-info" class="ui celled stackable table">
+				<thead>
+					<tr>
+						<th>Version</th>
+						<th class="center aligned">Available</th>
+						<th class="center aligned">Downloaded</th>
+						<th class="center aligned">Action</th>
+					</tr>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
+			<div class="ui checkbox">
+				<input id="dryrun" type="checkbox">
+				<label>Perform a trial run with no changes made</label>
+			</div>
+			<br />
+			<div class="ui checkbox">
+				<input id="reboot-after-install" type="checkbox" checked="checked">
+				<label>Reboot system after installation</label>
+			</div>
+		</div>
+		
 		<h2 class="ui dividing header">Addons</h2>
-		<table id="addon_info" class="ui celled stackable table">
-			<thead>
-				<tr>
-					<th>Name</th>
-					<th>Version</th>
-					<th class="center aligned">Available</th>
-					<th class="center aligned">Action</th>
-				</tr>
-			</thead>
-			<tbody>
-			</tbody>
-		</table>
-		-->
+		<div class="dimmable">
+			<div id="dimmer-addon-info" class="ui active inverted dimmer">
+				<div class="ui loader">Loading</div>
+			</div>
+			<table id="addon-info" class="ui celled stackable table">
+				<thead>
+					<tr>
+						<th>Addon name</th>
+						<th>Installed version</th>
+						<th class="center aligned">Available version</th>
+						<th class="center aligned">Action</th>
+					</tr>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
+		</div>
 		
-		<div class="ui checkbox">
-			<input id="dryrun" type="checkbox">
-			<label>Perform a trial run with no changes made</label>
-		</div>
-		<br />
-		<div class="ui checkbox">
-			<input id="reboot-after-install" type="checkbox" checked="checked">
-			<label>Reboot system after installation</label>
-		</div>
 	</div>
 	
 	<div style="height:80%" id="modal-log" class="ui modal">

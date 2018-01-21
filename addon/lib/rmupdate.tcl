@@ -29,7 +29,7 @@ namespace eval rmupdate {
 	variable install_log "/usr/local/addons/rmupdate/var/install.log"
 	variable install_lock "/usr/local/addons/rmupdate/var/install.lock"
 	variable log_file "/tmp/rmupdate-addon-log.txt"
-	variable log_level 0
+	variable log_level 4
 	variable lock_start_port 12100
 	variable lock_socket
 	variable lock_id_log_file 1
@@ -510,7 +510,6 @@ proc ::rmupdate::get_latest_firmware_version {} {
 
 proc ::rmupdate::download_firmware {version} {
 	variable img_dir
-	variable log_file
 	variable install_log
 	
 	set image_file "${img_dir}/RaspberryMatic-${version}.img"
@@ -529,7 +528,7 @@ proc ::rmupdate::download_firmware {version} {
 	regexp {/([^/]+)$} $download_url match archive_file
 	set archive_file "${img_dir}/${archive_file}"
 	file mkdir $img_dir
-	if {$log_file != ""} {
+	if {$install_log != ""} {
 		exec /usr/bin/wget "${download_url}" --show-progress --progress=dot:giga --no-check-certificate --quiet --output-document=$archive_file 2>>${install_log}
 		write_install_log ""
 	} else {
@@ -733,7 +732,7 @@ proc ::rmupdate::is_firmware_up_to_date {} {
 	return 0
 }
 
-proc ::rmupdate::get_addon_info {{fetch_available_versions 0} {fetch_download_url 0} {as_json 0}} {
+proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url 0} {as_json 0} {addon_id ""}} {
 	variable rc_dir
 	variable addons_www_dir
 	array set addons {}
@@ -741,6 +740,9 @@ proc ::rmupdate::get_addon_info {{fetch_available_versions 0} {fetch_download_ur
 		catch {
 			set data [exec $f info]
 			set id [file tail $f]
+			if {$addon_id != "" && $addon_id != $id} {
+				continue
+			}
 			set addons(${id}::id) $id
 			set addons(${id}::name) ""
 			set addons(${id}::version) ""
@@ -757,7 +759,7 @@ proc ::rmupdate::get_addon_info {{fetch_available_versions 0} {fetch_download_ur
 							set keyl "config_url"
 						}
 						set addons(${id}::${keyl}) $value
-						if {$keyl == "update" && $fetch_available_versions == 1} {
+						if {$keyl == "update" && $fetch_available_version == 1} {
 							catch {
 								set cgi "${addons_www_dir}/[string range $value 8 end]"
 								set available_version [exec tclsh "$cgi"]
@@ -914,6 +916,59 @@ proc ::rmupdate::get_addon_info {{fetch_available_versions 0} {fetch_download_ur
 	}
 }
 
+proc ::rmupdate::install_addon {addon_id} {
+	variable rc_dir
+	
+	if {[get_running_installation] != ""} {
+		error "Another install process is running."
+	}
+	
+	set_running_installation "Addon ${addon_id}"
+	
+	array set addon [get_addon_info 1 1 0 $addon_id]
+	set download_url $addon(${addon_id}::download_url)
+	
+	write_log 3 "Downloading addon from ${download_url}."
+	regexp {/([^/]+)$} $download_url match archive_file
+	set archive_file "/tmp/${archive_file}"
+	if {[file exists $archive_file]} {
+		file delete $archive_file
+	}
+	
+	exec /usr/bin/wget "${download_url}" --no-check-certificate --quiet --output-document=$archive_file
+	
+	write_log 3 "Extracting archive ${archive_file}."
+	set tmp_dir "/tmp/rmupdate_addon_install_${addon_id}"
+	if {[file exists $tmp_dir]} {
+		file delete -force $tmp_dir
+	}
+	file mkdir $tmp_dir
+	
+	cd $tmp_dir
+	exec /bin/tar xzvf "${archive_file}"
+	
+	write_log 3 "Running update_script"
+	file attributes update_script -permissions 0755
+	exec ./update_script noreboot
+	
+	cd /tmp
+	
+	file delete -force $tmp_dir
+	file delete $archive_file
+	
+	write_log 3 "Restarting addon"
+	if { [catch {
+		exec "${rc_dir}/${addon_id}" restart
+	} errormsg] } {
+		write_log 2 "Addon restart failed: ${errormsg}"
+	}
+	
+	write_log 3 "Addon ${addon_id} successfully installed"
+	
+	set_running_installation ""
+	
+	return "Addon ${addon_id} successfully installed"
+}
 
 #puts [rmupdate::get_latest_firmware_version]
 #puts [rmupdate::get_firmware_info]
