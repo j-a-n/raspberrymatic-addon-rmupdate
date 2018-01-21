@@ -268,7 +268,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					var bupdate = $('<div class="ui '+ color +' basic '+ disabled +' button" id="button-update-' + addon.id + '">')
 						.attr('data-update-addon-id', addon.id)
 						.attr('data-update-addon-available-version', addon.available_version)
-						.append($('<i class="sign in icon">'), 'update');
+						.append($('<i class="sign in icon">'), (addon.version == addon.available_version) ? "reinstall" : "update");
 					bupdate.click(function() {
 						install_addon(this.getAttribute('data-update-addon-id'));
 					});

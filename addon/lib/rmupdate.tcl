@@ -29,7 +29,7 @@ namespace eval rmupdate {
 	variable install_log "/usr/local/addons/rmupdate/var/install.log"
 	variable install_lock "/usr/local/addons/rmupdate/var/install.lock"
 	variable log_file "/tmp/rmupdate-addon-log.txt"
-	variable log_level 4
+	variable log_level 0
 	variable lock_start_port 12100
 	variable lock_socket
 	variable lock_id_log_file 1
@@ -856,34 +856,6 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 			}
 		}
 	}
-	
-	#if {$as_json == 1} {
-	#	set json "\{"
-	#	set keys [array names addons]
-	#	set keys [lsort $keys]
-	#	set cur_addon_id ""
-	#	foreach key $keys {
-	#		set tmp [split $key "::"]
-	#		set addon_id [lindex $tmp 0]
-	#		set opt [lindex $tmp 2]
-	#		if {$cur_addon_id != $addon_id} {
-	#			if {$cur_addon_id != ""} {
-	#				set json [string range $json 0 end-1]
-	#				append json "\},"
-	#			}
-	#			append json "\"${addon_id}\":\{"
-	#			set cur_addon_id $addon_id
-	#		}
-	#		set val [json_string $addons($key)]
-	#		append json "\"${opt}\":\"${val}\","
-	#	}
-	#	if {$cur_addon_id != ""} {
-	#		set json [string range $json 0 end-1]
-	#		append json "\}"
-	#	}
-	#	append json "\}"
-	#	return $json
-	#}
 	
 	if {$as_json == 1} {
 		set json "\["
