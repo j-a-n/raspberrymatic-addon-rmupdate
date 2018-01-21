@@ -6,13 +6,7 @@ ADDON_DIR=/usr/local/addons/${ADDON_NAME}
 RCD_DIR=${CONFIG_DIR}/rc.d
 
 case "$1" in
-	""|start)
-		# Remove stale lockfile
-		[ -e /usr/local/addons/rmupdate/var/install.lock ] && rm /usr/local/addons/rmupdate/var/install.lock
-		echo "Done."
-	;;
-	
-	stop|restart)
+	stop|start|restart)
 		echo "Nothing to do."
 	;;
 	
@@ -20,7 +14,7 @@ case "$1" in
 		version=$(cat ${ADDON_DIR}/VERSION)
 		echo "Info: <b>${ADDON_NAME} addon</b><br>"
 		echo "Info: <a href='https://github.com/j-a-n/raspberrymatic-addon-rmupdate'>https://github.com/j-a-n/raspberrymatic-addon-rmupdate</a>"
-		echo "Name: RaspberryMatic update"
+		echo "Name: RaspberryMatic Update"
 		echo "Version: ${version}"
 		echo "Operations: uninstall"
 		echo "Config-Url: /addons/${ADDON_NAME}"
