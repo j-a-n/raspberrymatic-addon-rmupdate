@@ -67,9 +67,8 @@ proc ::rmupdate::i18n {str} {
 		if {$str == "Rebooting system."} { return "Das System wird neu gestartet." }
 		if {$str == "Latest firmware version: %s"} { return "Aktuellste Firmware-Version: %s" }
 		if {$str == "Current firmware version: %s"} { return "Installierte Firmware-Version: %s" }
-		
-		return $str
 	}
+	return $str
 }
 
 proc ::rmupdate::get_rpi_version {} {
