@@ -33,6 +33,7 @@ namespace eval rmupdate {
 	variable lock_start_port 12100
 	variable lock_socket
 	variable lock_id_log_file 1
+	variable language "de"
 }
 
 proc json_string {str} {
@@ -46,6 +47,29 @@ proc json_string {str} {
 		"\t"  "\\t"
 	}
 	return "[string map $replace_map $str]"
+}
+
+proc ::rmupdate::i18n {str} {
+	variable language
+	if {$language == "de"} {
+		if {$str == "Checking size of filesystems."} { return "Überprüfe Größe der Dateisysteme." }
+		if {$str == "Current filesystem of partition %d (%d bytes) not big enough (new usage: %d bytes)."} { return "Aktuelles Dateisystem der Partition %d (%d Bytes) nicht groß genug (neue Belegung: %d bytes)." }
+		if {$str == "Updating filesystems."} { return "Aktualisiere Dateisysteme." }
+		if {$str == "Updating system partition %s."} { return "Aktualisiere System-Partition %s." }
+		if {$str == "Updating boot configuration."} { return "Aktualisiere Boot-Konfiguration." }
+		if {$str == "Downloading firmware from %s."} { return "Lade Firmware von %s herunter." }
+		if {$str == "Download completed."} { return "Download abgeschlossen." }
+		if {$str == "Extracting firmware %s.\nThis process takes some minutes, please be patient..."} { return "Entpacke Firmware %s.\nBitte haben Sie ein wenig Geduld, dieser Vorgang benötigt einige Minuten..." }
+		if {$str == "Failed to find download link for firmware %s."} { return "Download-Link für Firmware %s nicht gefunden." }
+		if {$str == "Failed to extract firmware image from archive."} { return "Firmware-Image konnte nicht entpackt werden." }
+		if {$str == "Another install process is running."} { return "Es läuft bereits ein andere Installationsvorgang." }
+		if {$str == "System not upgradeable."} { return "Dieses System ist nicht aktualisierbar." }
+		if {$str == "Rebooting system."} { return "Das System wird neu gestartet." }
+		if {$str == "Latest firmware version: %s"} { return "Aktuellste Firmware-Version: %s" }
+		if {$str == "Current firmware version: %s"} { return "Installierte Firmware-Version: %s" }
+		
+		return $str
+	}
 }
 
 proc ::rmupdate::get_rpi_version {} {
@@ -130,12 +154,12 @@ proc ::rmupdate::read_log {} {
 	return $data
 }
 
-proc ::rmupdate::write_install_log {str} {
+proc ::rmupdate::write_install_log {str args} {
 	variable install_log
-	write_log 4 $str
+	write_log 4 [format $str $args]
 	puts stderr $str
 	set fd [open $install_log "a"]
-	puts $fd $str
+	puts $fd [format [i18n $str] $args]
 	close $fd
 }
 
@@ -291,7 +315,7 @@ proc ::rmupdate::update_fstab {fstab {boot ""} {root ""} {user ""}} {
 proc ::rmupdate::mount_image_partition {image partition mountpoint} {
 	variable loop_dev
 	
-	write_install_log "Mounting parition ${partition} of image ${image}."
+	write_log 3 "Mounting parition ${partition} of image ${image}."
 
 	set p [get_partion_start_and_size $image $partition]
 	write_log 4 "Partiton start=[lindex $p 0], size=[lindex $p 1]."
@@ -322,9 +346,9 @@ proc ::rmupdate::mount_system_partition {partition mountpoint} {
 	}
 	
 	if {$remount} {
-		write_install_log "Remounting filesystem ${partition} (rw)."
+		write_log 3 "Remounting filesystem ${partition} (rw)."
 	} else {
-		write_install_log "Mounting device ${partition} (rw)."
+		write_log 3 "Mounting device ${partition} (rw)."
 	}
 	
 	if {![file exists $mountpoint]} {
@@ -381,16 +405,17 @@ proc ::rmupdate::check_sizes {image} {
 		set su_cur [get_filesystem_size_and_usage $mnt_sys]
 		set cur_size [lindex $su_cur 0]
 		
-		write_install_log "Current filesystem (${partition}) size: ${cur_size}, new filesystem used bytes: ${new_used}."
+		write_log 4 "Current filesystem (${partition}) size: ${cur_size}, new filesystem used bytes: ${new_used}."
 		
 		umount $mnt_img
 		umount $mnt_sys
 		
 		if { [expr {$new_used*1.05}] > $cur_size && [expr {$new_used+50*1024*1024}] >= $cur_size } {
-			error "Current filesystem of partition $partition (${cur_size} bytes) not big enough (new usage: ${new_used} bytes)."
+			#error "Current filesystem of partition $partition (${cur_size} bytes) not big enough (new usage: ${new_used} bytes)."
+			error [format [i18n "Current filesystem of partition %d (%d bytes) not big enough (new usage: %d bytes)."] $partition $cur_size $new_used]
 		}
 	}
-	write_install_log "Sizes of filesystems checked successfully."
+	write_log 3 "Sizes of filesystems checked successfully."
 }
 
 proc ::rmupdate::update_filesystems {image {dryrun 0}} {
@@ -415,7 +440,7 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 		if {$sys_partition == 1} {
 			set mnt_s "/boot"
 		}
-		write_install_log "Updating system partition ${sys_partition}."
+		write_install_log "Updating system partition %s." $sys_partition
 		
 		mount_image_partition $image $img_partition $mnt_img
 		mount_system_partition $sys_partition $mnt_s
@@ -426,7 +451,7 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 			write_log 4 "ls -la ${mnt_s}"
 			write_log 4 [exec ls -la ${mnt_s}]
 		}
-		write_install_log "Rsyncing filesystem of partition ${sys_partition}."
+		write_log 3 "Rsyncing filesystem of partition ${sys_partition}."
 		if [catch {
 			set out ""
 			if {$dryrun} {
@@ -440,7 +465,7 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 		} err] {
 			write_log 4 $err
 		}
-		write_install_log "Rsync finished."
+		write_log 3 "Rsync finished."
 		if {$log_level >= 4} {
 			write_log 4 "ls -la ${mnt_img}"
 			write_log 4 [exec ls -la ${mnt_img}]
@@ -449,7 +474,7 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 		}
 		
 		if {$img_partition == 1} {
-			write_install_log "Update cmdline."
+			write_install_log "Updating boot configuration."
 			if {!$dryrun} {
 				set new_root_partition 2
 				if {$root_partition == 2} {
@@ -522,9 +547,9 @@ proc ::rmupdate::download_firmware {version} {
 		}
 	}
 	if {$download_url == ""} {
-		error "Failed to get url for firmware ${version}"
+		error [format [i18n "Failed to find download link for firmware %s."] $version]
 	}
-	write_install_log "Downloading firmware from ${download_url}."
+	write_install_log "Downloading firmware from %s." $download_url
 	regexp {/([^/]+)$} $download_url match archive_file
 	set archive_file "${img_dir}/${archive_file}"
 	file mkdir $img_dir
@@ -534,9 +559,11 @@ proc ::rmupdate::download_firmware {version} {
 	} else {
 		exec /usr/bin/wget "${download_url}" --no-check-certificate --quiet --output-document=$archive_file
 	}
+	
+	write_install_log ""
 	write_install_log "Download completed."
 	
-	write_install_log "Extracting firmware ${archive_file}."
+	write_install_log "Extracting firmware %s.\nThis process takes some minutes, please be patient..." [file tail $archive_file]
 	set data [exec /usr/bin/unzip -ql "${archive_file}" 2>/dev/null]
 	set img_file ""
 	foreach d [split $data "\n"] {
@@ -546,7 +573,7 @@ proc ::rmupdate::download_firmware {version} {
 		}
 	}
 	if { $img_file == "" } {
-		error "Failed to extract image from archive."
+		error [i18n "Failed to extract firmware image from archive."]
 	}
 	exec /usr/bin/unzip "${archive_file}" "${img_file}" -o -d "${img_dir}" 2>/dev/null
 	set img_file "${img_dir}/${img_file}"
@@ -675,12 +702,14 @@ proc ::rmupdate::delete_firmware_image {version} {
 	catch { eval {file delete [glob "${img_dir}/*${version}*.zip"]} }
 }
 
-proc ::rmupdate::install_firmware_version {version {reboot 1} {dryrun 0}} {
+proc ::rmupdate::install_firmware_version {version lang {reboot 1} {dryrun 0}} {
+	variable language
+	set language $lang
 	if {[get_running_installation] != ""} {
-		error "Another install process is running."
+		error [i18n "Another install process is running."]
 	}
 	if {! [is_system_upgradeable]} {
-		error "System not upgradeable."
+		error [i18n "System not upgradeable."]
 	}
 	
 	set_running_installation "Firmware ${version}"
@@ -721,10 +750,10 @@ proc ::rmupdate::install_latest_version {{reboot 1} {dryrun 0}} {
 
 proc ::rmupdate::is_firmware_up_to_date {} {
 	set latest_version [get_latest_firmware_version]
-	write_install_log "Latest firmware version: ${latest_version}"
+	write_install_log "Latest firmware version: %s" $latest_version
 	
 	set current_version [get_current_firmware_version]
-	write_install_log "Current firmware version: ${current_version}"
+	write_install_log "Installed firmware version: ${current_version}"
 	
 	if {[compare_versions $current_version $latest_version] >= 0} {
 		return 1
@@ -892,7 +921,7 @@ proc ::rmupdate::install_addon {addon_id} {
 	variable rc_dir
 	
 	if {[get_running_installation] != ""} {
-		error "Another install process is running."
+		error [i18n "Another install process is running."]
 	}
 	
 	set_running_installation "Addon ${addon_id}"

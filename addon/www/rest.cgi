@@ -41,6 +41,7 @@ proc process {} {
 			return [rmupdate::get_addon_info 1 1 1]
 		} elseif {[lindex $path 1] == "start_install_firmware"} {
 			regexp {\"version\"\s*:\s*\"([\d\.]+)\"} $data match version
+			regexp {\"language\"\s*:\s*\"([^\"]+)\"} $data match lang
 			regexp {\"reboot\"\s*:\s*(true|false)} $data match reboot
 			regexp {\"dryrun\"\s*:\s*(true|false)} $data match dryrun
 			if { [info exists version] && $version != "" } {
@@ -60,7 +61,7 @@ proc process {} {
 				} else {
 					set dryrun 0
 				}
-				return "\"[rmupdate::install_firmware_version $version $reboot $dryrun]\""
+				return "\"[rmupdate::install_firmware_version $version $lang $reboot $dryrun]\""
 			} else {
 				error "Invalid version: ${data}"
 			}

@@ -23,13 +23,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/i18next/8.1.0/i18next.min.js" ></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-i18next/1.2.0/jquery-i18next.min.js" ></script>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2.7/semantic.min.css" integrity="sha256-wT6CFc7EKRuf7uyVfi+MQNHUzojuHN2pSw0YWFt2K5E=" crossorigin="anonymous" />
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2.7/semantic.min.js" integrity="sha256-flVaeawsBV96vCHiLmXn03IRJym7+ZfcLVvUWONCas8=" crossorigin="anonymous"></script>
 	<style>
 	</style>
 	
-	<title>RaspberryMatic Update Addon</title>
+	<title data-i18n="title">RaspberryMatic Update Addon</title>
 	<script>
+		var language = navigator.language || navigator.userLanguage;
 		var message_timer_id = null;
 		var running_installation = "";
 		var current_firmware = '?';
@@ -66,7 +69,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			}
 			catch(e) {
 			}
-			display_message('error', 'An error occurred: ' + err, 6000000);
+			display_message('error', i18next.t('error_occurred', {'error': err}), 6000000);
 		}
 		
 		function rest(method, path, data, success_callback, error_callback) {
@@ -83,7 +86,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
-		function set_running_installation(installation_info) {
+		function set_running_installation(installation_info, error) {
+			//console.info("set_running_installation: |" + installation_info + "|" + running_installation + "|" + error);
 			var firmware_regex = /firmware\s+(.*)/i;
 			if (running_installation && (!installation_info)) {
 				// Running installation finished
@@ -92,8 +96,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					var version = match[1];
 					$('[data-install-firmware-version="' + version + '"]').removeClass('loading');
 				}
-				msg = running_installation + ' successfully installed.'
-				display_message('success', msg, 6000000);
+				if (error) {
+					display_message('error', i18next.t('installation_failed', {'what': running_installation, 'error': error}), 6000000);
+				}
+				else {
+					display_message('success', i18next.t('installation_success', {'what': running_installation}), 6000000);
+				}
+				$('#modal-log').modal('refresh');
+				$('#log-content').scrollTop($('#log-content').prop("scrollHeight"));
 			}
 			
 			running_installation = installation_info;
@@ -109,11 +119,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		
 		function update_install_log() {
 			rest("GET", "/get_running_installation", null, function(installation_info) {
-				set_running_installation(installation_info);
+				if (running_installation && (installation_info != running_installation)) {
+					if (installation_info == "") {
+						// Wait a while to handle potential errors
+						setTimeout(function() {
+							set_running_installation(installation_info);
+						}, 3000);
+					}
+					else {
+						set_running_installation(installation_info);
+					}
+				}
 			});
 			rest("GET", "/read_install_log", null, function(data) {
 				$('#log-content').html(data.replace(/\n/g, '<br />'));
-				$('#modal-log').modal('refresh');
+				//$('#modal-log').modal('refresh');
 				$('#log-content').scrollTop($('#log-content').prop("scrollHeight"));
 				if (running_installation) {
 					setTimeout(update_install_log, 1000);
@@ -124,7 +144,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		function delete_firmware_image(version) {
 			rest("POST", "/delete_firmware_image", JSON.stringify({"version":version}),
 				function(data) {
-					display_message('success', 'Firmware image ' + version + ' successfully deleted.', 5000);
+					display_message('success', i18next.t('delete_firmware_img_success', {'version': version}), 5000);
 					get_firmware_info();
 				}
 			);
@@ -136,21 +156,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			if (!running_installation) {
 				var reboot = $('#reboot-after-install').is(':checked');
 				var dryrun = $('#dryrun').is(':checked');
-				display_message('info', 'Installing firmware ' + version + '.', 6000000);
+				display_message('info', i18next.t('installing_firmware', {'version': version}), 6000000);
 				clear_message();
-				rest("POST", "/start_install_firmware", JSON.stringify({"version":version, "reboot":reboot, "dryrun":dryrun}),
+				set_running_installation("Firmware " + version);
+				rest("POST", "/start_install_firmware", JSON.stringify({"language": language, "version":version, "reboot":reboot, "dryrun":dryrun}),
 					function(data) {
 						// We are not expecting a response
 					},
 					function(xhr, ajaxOptions, thrownError) {
 						console.error("Firmware installation error: " + thrownError + ": " + xhr.responseText);
-						$('[data-install-firmware-version="' + running_installation + '"]').removeClass('loading');
 						//$('#modal-log').modal('hide');
-						if (running_installation) {
-							//get_firmware_info();
-							default_error_callback(xhr, ajaxOptions, thrownError);
-						}
-						set_running_installation("");
+						set_running_installation("", thrownError + ": " + xhr.responseText);
 					}
 				);
 			}
@@ -174,14 +190,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					if (fw.latest) color = 'green';
 					if (fw.installed) color = 'gray';
 					var disabled = (fw.image || fw.url ? '' : 'disabled');
-					var binstall = $('<div class="ui '+ color +' basic '+ disabled +' button">').attr('data-install-firmware-version', fw.version).append($('<i class="sign in icon">'), 'install');
+					var binstall = $('<div class="ui '+ color +' basic '+ disabled +' button">').attr('data-install-firmware-version', fw.version).append($('<i class="sign in icon">'), i18next.t('install'));
 					binstall.click(function() {
 						install_firmware(this.getAttribute('data-install-firmware-version'));
 					});
 					var bcls = '';
 					if (!fw.image) bcls = 'disabled';
 					if (fw.version == running_installation) bcls = 'loading';
-					var bdelete = $('<div class="ui orange basic '+ bcls +' button">').attr('data-delete-version', fw.version).append($('<i class="delete icon">'), 'delete download');
+					var bdelete = $('<div class="ui orange basic '+ bcls +' button">').attr('data-delete-version', fw.version).append($('<i class="delete icon">'), i18next.t('delete_download'));
 					bdelete.click(function() {
 						delete_firmware_image(this.getAttribute('data-delete-version'));
 					});
@@ -192,7 +208,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					if (fw.installed) cls = ' class="warning"';
 					if (fw.latest) cls = ' class="positive"';
 					$("#firmware-info tbody").append($('<tr' + cls + '>').append(
-						$('<td>').append($('<a>', {text: fw.version, title: 'Open release info', href: fw.info_url, target: "_blank"})),
+						$('<td>').append($('<a>', {text: fw.version, title: i18next.t('open_release_info'), href: fw.info_url, target: "_blank"})),
 						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+available+'>'),$('<label></label>'))),
 						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+downloaded+'>'),$('<label></label>'))),
 						$('<td class="center aligned">').append(bdelete, binstall)
@@ -204,12 +220,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 				$("#firmware-summary").empty();
 				$("#firmware-summary").append(
-					$('<div class="sub header">').html('Current installed version: <span style="color:'+ color +'">' + current_firmware + '</span>'),
-					$('<div class="sub header">').html('Latest available version: ' + latest_firmware)
+					$('<div class="sub header">').html(i18next.t('current_installed_version') + ': <span style="color:'+ color +'">' + current_firmware + '</span>'),
+					$('<div class="sub header">').html(i18next.t('latest_available_version') + ': ' + latest_firmware)
 				);
 				if (current_firmware != latest_firmware) {
 					$("#firmware-summary").append(
-						$('<div class="ui green basic button" style="margin-top:20px; margin-bottom:20px;">').click(install_latest_firmware).append($('<i class="sign in icon">'), 'Install latest firmware')
+						$('<div class="ui green basic button" style="margin-top:20px; margin-bottom:20px;">').click(install_latest_firmware).append($('<i class="sign in icon">'), i18next.t('install_latest_firmware'))
 					);
 				}
 				
@@ -224,7 +240,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			rest("GET", "/get_system_info", null, function(data) {
 				$("#system-info").empty();
 				$("#system-info").append(
-					$('<div class="sub header">').html('Current root partition: ' + data.root_partition)
+					$('<div class="sub header">').html(i18next.t('current_root_partiton', {'root_partition': data.root_partition}))
 				);
 			});
 		}
@@ -268,7 +284,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					var bupdate = $('<div class="ui '+ color +' basic '+ disabled +' button" id="button-update-' + addon.id + '">')
 						.attr('data-update-addon-id', addon.id)
 						.attr('data-update-addon-available-version', addon.available_version)
-						.append($('<i class="sign in icon">'), (addon.version == addon.available_version) ? "reinstall" : "update");
+						.append($('<i class="sign in icon">'), (addon.version == addon.available_version) ? i18next.t('reinstall') : i18next.t('update'));
 					bupdate.click(function() {
 						install_addon(this.getAttribute('data-update-addon-id'));
 					});
@@ -276,7 +292,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					disabled = ((addon.config_url) ? '' : 'disabled');
 					var bconfig = $('<div class="ui blue basic '+ disabled +' button">')
 						.attr('data-addon-config-url', addon.config_url)
-						.append($('<i class="setting icon">'), 'open config');
+						.append($('<i class="setting icon">'), i18next.t('open_config'));
 					bconfig.click(function() {
 						var win = window.open(this.getAttribute('data-addon-config-url'), '_blank');
 						win.focus();
@@ -296,14 +312,97 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		$(document).ready(function() {
+			i18next.init({
+				lng: language,
+				fallbackLng: 'en',
+				resources: {
+					en: {
+						translation: {
+							title: 'System update',
+							system_info: 'System information',
+							current_root_partiton: 'Current root partition: {{root_partition}}',
+							firmwares: 'Firmwares',
+							current_installed_version: 'Current installed version',
+							latest_available_version: 'Latest available version',
+							loading: 'Loading',
+							version: 'Version',
+							available: 'Available',
+							downloaded: 'Downloaded',
+							action: 'Action',
+							delete_download: 'Delete download',
+							install: 'Install',
+							installation_log: 'Installation log',
+							open_release_info: 'Open release info',
+							perform_trial_run: 'Perform a trial run with no changes made',
+							reboot_after_install: 'Reboot system after installation',
+							addons: 'Addons',
+							addon_name: 'Addon name',
+							installed_version: 'Installed version',
+							available_version: 'Available version',
+							reinstall: 'Reinstall',
+							update: 'Update',
+							open_config: 'Open config',
+							error_occurred: 'An error occurred: {{error}}',
+							installation_failed: 'Failed to install {{what}}: {{error}}',
+							installation_success: '{{what}} successfully installed.',
+							delete_firmware_img_success: 'Firmware image {{version}} successfully deleted.',
+							installing_firmware: 'Installing firmware {{version}}.',
+							install_latest_firmware: 'Install latest firmware',
+							system_not_upgradeable: 'System not upgradeable or filesystem to small!'
+						}
+					},
+					de: {
+						translation: {
+							title: 'System-Aktualisierung',
+							system_info: 'System-Informationen',
+							current_root_partiton: 'Aktuelle Root-Partition: {{root_partition}}',
+							firmwares: 'Firmwares',
+							current_installed_version: 'Momentan installierte Version',
+							latest_available_version: 'Aktuellste verfügbare Version',
+							loading: 'Lade',
+							version: 'Version',
+							available: 'Verfügbar',
+							downloaded: 'Heruntergeladen',
+							action: 'Aktion',
+							delete_download: 'Download löschen',
+							install: 'Installieren',
+							installation_log: 'Installations-Protokoll',
+							open_release_info: 'Release-Informationen öffnen',
+							perform_trial_run: 'Testlauf durchführen ohne Änderungen durchzuführen',
+							reboot_after_install: 'System nach Installation neu starten',
+							addons: 'Zusatzsoftware',
+							addon_name: 'Name des Addons',
+							installed_version: 'Installierte Version',
+							available_version: 'Verfügbare Version',
+							reinstall: 'Neu installieren',
+							update: 'Aktualisieren',
+							open_config: 'Konfiguration öffnen',
+							error_occurred: 'Ein Fehler ist aufgetreten: {{error}}',
+							installation_failed: 'Fehler beim Installieren von {{what}}: {{error}}',
+							installation_success: '{{what}} erfolgreich installiert.',
+							delete_firmware_img_success: 'Firmware-Image {{version}} erfolgreich gelöscht.',
+							installing_firmware: 'Installiere Firmware {{version}}.',
+							install_latest_firmware: 'Aktuellste Firmware installieren',
+							system_not_upgradeable: 'System nicht aktualisierbar oder Dateisystem zu klein!'
+						}
+					}
+				}
+			}, function(err, t) {
+				jqueryI18next.init(i18next, $);
+				$('title').localize();
+				$('h1').localize();
+				$('h2').localize();
+				$('div').localize();
+				$('th').localize();
+				$('label').localize();
+			});
+			
 			rest("GET", "/version", null, function(version) {
 				document.title = document.title + " " + version;
 			});
 			rest("GET", "/is_system_upgradeable", null, function(upgradeable) {
 				if (!upgradeable) {
-					var message = 'System not upgradeable or filesystem to small!<br />';
-					message += 'Please download and install adjusted RaspMatic image from <a href="https://github.com/j-a-n/raspberrymatic-addon-rmupdate">RaspMatic image</a> first.';
-					display_message('error', message, 6000000);
+					display_message('error', i18next.t('system_not_upgradeable'), 6000000);
 				}
 			});
 			get_system_info();
@@ -314,28 +413,28 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 </head>
 <body>
 	<div style="padding-top: 5vw; padding-bottom: 5vw" class="ui container">
-		<h1 class="ui header">RaspberryMatic Update</h1>
+		<h1 class="ui header" data-i18n="title"></h1>
 		<div id="message" class="ui message hidden">
 		</div>
-		<h2 class="ui dividing header">System info</h2>
+		<h2 class="ui dividing header" data-i18n="system_info"></h2>
 		<div class="content" id="system-info">
 		</div>
 		
-		<h2 class="ui dividing header">Firmwares</h2>
+		<h2 class="ui dividing header" data-i18n="firmwares"></h2>
 		<div class="content" id="firmware-summary">
 		</div>
 		
 		<div class="dimmable">
 			<div id="dimmer-firmware-info" class="ui active inverted dimmer">
-				<div class="ui loader">Loading</div>
+				<div class="ui loader" data-i18n="loading"></div>
 			</div>
 			<table id="firmware-info" class="ui celled stackable table">
 				<thead>
 					<tr>
-						<th>Version</th>
-						<th class="center aligned">Available</th>
-						<th class="center aligned">Downloaded</th>
-						<th class="center aligned">Action</th>
+						<th data-i18n="version"></th>
+						<th class="center aligned" data-i18n="available"></th>
+						<th class="center aligned" data-i18n="downloaded"></th>
+						<th class="center aligned" data-i18n="action"></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -343,27 +442,27 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			</table>
 			<div class="ui checkbox">
 				<input id="dryrun" type="checkbox">
-				<label>Perform a trial run with no changes made</label>
+				<label data-i18n="perform_trial_run"></label>
 			</div>
 			<br />
 			<div class="ui checkbox">
 				<input id="reboot-after-install" type="checkbox" checked="checked">
-				<label>Reboot system after installation</label>
+				<label data-i18n="reboot_after_install"></label>
 			</div>
 		</div>
 		
-		<h2 class="ui dividing header">Addons</h2>
+		<h2 class="ui dividing header" data-i18n="addons"></h2>
 		<div class="dimmable">
 			<div id="dimmer-addon-info" class="ui active inverted dimmer">
-				<div class="ui loader">Loading</div>
+				<div class="ui loader" data-i18n="loading"></div>
 			</div>
 			<table id="addon-info" class="ui celled stackable table">
 				<thead>
 					<tr>
-						<th>Addon name</th>
-						<th>Installed version</th>
-						<th>Available version</th>
-						<th class="center aligned">Action</th>
+						<th data-i18n="addon_name"></th>
+						<th data-i18n="installed_version"></th>
+						<th data-i18n="available_version"></th>
+						<th class="center aligned" data-i18n="action"></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -373,15 +472,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		
 	</div>
 	
-	<div style="height:80%" id="modal-log" class="ui modal">
+	<div style="height:60vh;" id="modal-log" class="ui modal">
 		<i class="close icon"></i>
-		<div class="header">
-			Installation log
+		<div class="header" data-i18n="installation_log">
 		</div>
 		<div class="content">
 			<div id="message-log" class="ui message hidden">
 			</div>
-			<pre style="max-height:80%; overflow-x:hidden; overflow-y:auto; white-space: pre-wrap;" id="log-content" class="content">
+			<pre style="height:25vh; overflow-x:hidden; overflow-y:auto; white-space: pre-wrap;" id="log-content">
 			</pre>
 		</div>
 	</div>
