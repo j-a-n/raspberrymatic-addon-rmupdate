@@ -2,7 +2,7 @@
 
 LOOP_DEV=7
 BOOT_SIZE=$((100*1024*1024))
-GAP_SIZE=$((900*1024*1024)) # Free space for future use
+GAP_SIZE=$((200*1024*1024)) # Reserved space for future use
 ROOT_SIZE=$((1000*1024*1024))
 USR_LOCAL_SIZE=$((2*1024*1024))
 
@@ -29,7 +29,7 @@ parted --script $new_image_file \
 	mklabel msdos \
 	mkpart primary fat32 512B ${BOOT_SIZE}B \
 	set 1 boot on \
-	mkpart primary ext4 $((512+${BOOT_SIZE}))B $((${BOOT_SIZE}+${ROOT_SIZE}))B \
+	mkpart primary ext4 $((512+${BOOT_SIZE}+${GAP_SIZE}))B $((${BOOT_SIZE}+${GAP_SIZE}+${ROOT_SIZE}))B \
 	mkpart primary ext4 $((512+${BOOT_SIZE}+${GAP_SIZE}+${ROOT_SIZE}))B $((${BOOT_SIZE}+${GAP_SIZE}+${ROOT_SIZE}+${ROOT_SIZE}))B \
 	mkpart primary ext4 $((512+${BOOT_SIZE}+${GAP_SIZE}+${ROOT_SIZE}+${ROOT_SIZE}))B 100%
 
