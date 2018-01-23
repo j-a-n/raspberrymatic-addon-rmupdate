@@ -125,7 +125,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			rest("GET", "/get_running_installation", null, function(installation_info) {
 				if (running_installation) {
 					if ($('#install-progress').progress("get percent") >= 95) {
-						$('#install-progress').progress("set percent", 20);
+						$('#install-progress').progress("decrement", 20);
 					}
 					$('#install-progress').progress('increment');
 					if (installation_info != running_installation) {
