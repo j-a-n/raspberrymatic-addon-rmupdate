@@ -58,21 +58,38 @@ losetup /dev/loop${LOOP_DEV} $new_image_file
 kpartx -a /dev/loop${LOOP_DEV}
 ln -s /dev/loop${LOOP_DEV} /dev/mapper/loop${LOOP_DEV}p
 
-#fsck.vfat -a /dev/mapper/loop${LOOP_DEV}p1
-fatresize --size $BOOT_SIZE /dev/mapper/loop${LOOP_DEV}p1
-fsck.ext4 -f -y /dev/mapper/loop${LOOP_DEV}p2
-resize2fs /dev/mapper/loop${LOOP_DEV}p2
-tune2fs -L rootfs1 /dev/mapper/loop${LOOP_DEV}p2
-mkfs.ext4 -L rootfs2 /dev/mapper/loop${LOOP_DEV}p3
-fsck.ext4 -f -y /dev/mapper/loop${LOOP_DEV}p4
-resize2fs /dev/mapper/loop${LOOP_DEV}p4
+sleep 3
 
 partuuid=$(blkid -s PARTUUID -o value /dev/mapper/loop${LOOP_DEV}p2)
+echo "PARTUUID=${partuuid}"
 mkdir /tmp/rmupdate.mnt
 mount /dev/mapper/loop${LOOP_DEV}p1 /tmp/rmupdate.mnt
+(cd /tmp/rmupdate.mnt; tar cf /tmp/rmupdate.boot.tar .)
+umount /tmp/rmupdate.mnt
+
+mkfs.vfat -F32 -n bootfs  /dev/mapper/loop${LOOP_DEV}p1
+mount /dev/mapper/loop${LOOP_DEV}p1 /tmp/rmupdate.mnt
+(cd /tmp/rmupdate.mnt; tar xf /tmp/rmupdate.boot.tar .)
 sed -i -r s"/root=\S+/root=PARTUUID=${partuuid}/" /tmp/rmupdate.mnt/cmdline.txt
 umount /tmp/rmupdate.mnt
+
+rm /tmp/rmupdate.boot.tar
 rmdir /tmp/rmupdate.mnt
+
+#fsck.vfat -a /dev/mapper/loop${LOOP_DEV}p1
+#fatresize --size $BOOT_SIZE /dev/mapper/loop${LOOP_DEV}p1
+
+sleep 3
+fsck.ext4 -f -y /dev/mapper/loop${LOOP_DEV}p2 || true
+resize2fs /dev/mapper/loop${LOOP_DEV}p2
+tune2fs -L rootfs1 /dev/mapper/loop${LOOP_DEV}p2
+sleep 3
+mkfs.ext4 -L rootfs2 /dev/mapper/loop${LOOP_DEV}p3 || true
+sleep 3
+fsck.ext4 -f -y /dev/mapper/loop${LOOP_DEV}p4 || true
+resize2fs /dev/mapper/loop${LOOP_DEV}p4
+
+
 
 rm /dev/mapper/loop${LOOP_DEV}p
 kpartx -d /dev/loop${LOOP_DEV}
