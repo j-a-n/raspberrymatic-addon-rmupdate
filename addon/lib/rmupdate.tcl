@@ -64,7 +64,7 @@ proc ::rmupdate::i18n {str} {
 		if {$str == "Failed to extract firmware image from archive."} { return "Firmware-Image konnte nicht entpackt werden." }
 		if {$str == "Another install process is running."} { return "Es läuft bereits ein andere Installationsvorgang." }
 		if {$str == "System not upgradeable."} { return "Dieses System ist nicht aktualisierbar." }
-		if {$str == "Rebooting system."} { return "Das System wird neu gestartet." }
+		if {$str == "System will reboot now."} { return "Das System wird jetzt neu gestartet." }
 		if {$str == "Latest firmware version: %s"} { return "Aktuellste Firmware-Version: %s" }
 		if {$str == "Current firmware version: %s"} { return "Installierte Firmware-Version: %s" }
 	}
@@ -732,7 +732,7 @@ proc ::rmupdate::install_firmware_version {version lang {reboot 1} {dryrun 0}} {
 	set_running_installation ""
 	
 	if {$reboot && !$dryrun} {
-		write_install_log "Rebooting system."
+		write_install_log "System will reboot now."
 	}
 	
 	after 5000

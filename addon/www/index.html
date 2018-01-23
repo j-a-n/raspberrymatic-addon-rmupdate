@@ -95,11 +95,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				if (match != null) {
 					var version = match[1];
 					$('[data-install-firmware-version="' + version + '"]').removeClass('loading');
+					$('[data-delete-version="' + version + '"]').removeClass('disabled');
 				}
 				if (error) {
+					$('#install-progress').progress("set error");
 					display_message('error', i18next.t('installation_failed', {'what': running_installation, 'error': error}), 6000000);
 				}
 				else {
+					$('#install-progress').progress("set success");
 					display_message('success', i18next.t('installation_success', {'what': running_installation}), 6000000);
 				}
 				$('#modal-log').modal('refresh');
@@ -113,21 +116,28 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				if (match != null) {
 					var version = match[1];
 					$('[data-install-firmware-version="' + version + '"]').addClass('loading');
+					$('[data-delete-version="' + version + '"]').addClass('disabled');
 				}
 			}
 		}
 		
 		function update_install_log() {
 			rest("GET", "/get_running_installation", null, function(installation_info) {
-				if (running_installation && (installation_info != running_installation)) {
-					if (installation_info == "") {
-						// Wait a while to handle potential errors
-						setTimeout(function() {
-							set_running_installation(installation_info);
-						}, 3000);
+				if (running_installation) {
+					if ($('#install-progress').progress("get percent") >= 95) {
+						$('#install-progress').progress("set percent", 20);
 					}
-					else {
-						set_running_installation(installation_info);
+					$('#install-progress').progress('increment');
+					if (installation_info != running_installation) {
+						if (installation_info == "") {
+							// Wait a while to handle potential errors
+							setTimeout(function() {
+								set_running_installation(installation_info);
+							}, 3000);
+						}
+						else {
+							set_running_installation(installation_info);
+						}
 					}
 				}
 			});
@@ -152,6 +162,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		
 		function install_firmware(version) {
 			$('#log-content').html('');
+			$('#install-progress').progress("reset");
 			$('#modal-log').modal('show');
 			if (!running_installation) {
 				var reboot = $('#reboot-after-install').is(':checked');
@@ -476,11 +487,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		<i class="close icon"></i>
 		<div class="header" data-i18n="installation_log">
 		</div>
+		<div class="ui bottom attached progress" data-value="0" data-total="25" id="install-progress">
+			<div class="bar"></div>
+		</div>
 		<div class="content">
 			<div id="message-log" class="ui message hidden">
 			</div>
-			<pre style="height:25vh; overflow-x:hidden; overflow-y:auto; white-space: pre-wrap;" id="log-content">
-			</pre>
+			<div class="content">
+				<pre style="height:25vh; overflow-x:hidden; overflow-y:auto; white-space: pre-wrap;" id="log-content">
+				</pre>
+			</div>
 		</div>
 	</div>
 </body>
