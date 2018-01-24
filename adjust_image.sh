@@ -50,9 +50,29 @@ for line in $(parted $image_file unit B print | grep primary); do
 done
 
 echo "*** Resizing / creating filesystems ***"
+umount /tmp/rmupdate.mnt 2>/dev/null || true
+rmdir /tmp/rmupdate.mnt 2>/dev/null || true
+rm /tmp/rmupdate.boot.tar 2>/dev/null || true
 rm /dev/mapper/loop${LOOP_DEV}p 2>/dev/null || true
 kpartx -d /dev/loop${LOOP_DEV} 2>/dev/null || true
 losetup -d /dev/loop${LOOP_DEV} 2>/dev/null || true
+
+losetup /dev/loop${LOOP_DEV} $image_file
+kpartx -a /dev/loop${LOOP_DEV}
+ln -s /dev/loop${LOOP_DEV} /dev/mapper/loop${LOOP_DEV}p
+
+sleep 3
+
+mkdir /tmp/rmupdate.mnt
+mount /dev/mapper/loop${LOOP_DEV}p1 /tmp/rmupdate.mnt
+(cd /tmp/rmupdate.mnt; tar cf /tmp/rmupdate.boot.tar .)
+umount /tmp/rmupdate.mnt
+
+rm /dev/mapper/loop${LOOP_DEV}p 2>/dev/null || true
+kpartx -d /dev/loop${LOOP_DEV} 2>/dev/null || true
+losetup -d /dev/loop${LOOP_DEV} 2>/dev/null || true
+
+sleep 3
 
 losetup /dev/loop${LOOP_DEV} $new_image_file
 kpartx -a /dev/loop${LOOP_DEV}
@@ -62,12 +82,9 @@ sleep 3
 
 partuuid=$(blkid -s PARTUUID -o value /dev/mapper/loop${LOOP_DEV}p2)
 echo "PARTUUID=${partuuid}"
-mkdir /tmp/rmupdate.mnt
-mount /dev/mapper/loop${LOOP_DEV}p1 /tmp/rmupdate.mnt
-(cd /tmp/rmupdate.mnt; tar cf /tmp/rmupdate.boot.tar .)
-umount /tmp/rmupdate.mnt
 
 mkfs.vfat -F32 -n bootfs  /dev/mapper/loop${LOOP_DEV}p1
+sleep 3
 mount /dev/mapper/loop${LOOP_DEV}p1 /tmp/rmupdate.mnt
 (cd /tmp/rmupdate.mnt; tar xf /tmp/rmupdate.boot.tar .)
 sed -i -r s"/root=\S+/root=PARTUUID=${partuuid}/" /tmp/rmupdate.mnt/cmdline.txt
