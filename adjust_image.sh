@@ -1,7 +1,6 @@
 #!/bin/bash -e
 
 LOOP_DEV=7
-PART_START=512
 BOOT_SIZE=$((250*1024*1024))
 ROOT_SIZE=$((1000*1024*1024))
 USR_LOCAL_SIZE=$((2*1024*1024))
@@ -14,12 +13,16 @@ fi
 image_file="$(realpath $1)"
 new_image_file="${image_file/\.img/\.rmupdate\.img}"
 
-[ $tinker == 1 ] && PART_START=$((906*512))
-
 if [[ ! $image_file =~ .*\.img ]]; then
 	echo "Not an image file: ${image_file}." 1>&2
 	exit 1
 fi
+
+tinker=0
+[[ $(basename $image_file) =~ .*tinkerboard.* ]] && tinker=1
+
+part_start=512
+[ $tinker == 1 ] && part_start=$((906*512))
 
 echo "image: ${image_file}"
 echo "adjusted image: ${new_image_file}"
@@ -28,11 +31,11 @@ echo "*** Creating new image file and partitions ***"
 dd if=/dev/zero of=$new_image_file bs=1M count=$((((${BOOT_SIZE}+${ROOT_SIZE}+${ROOT_SIZE}+${USR_LOCAL_SIZE})/1024/1024)+1))
 parted --script $new_image_file \
 	mklabel msdos \
-	mkpart primary fat32 ${PART_START}B ${BOOT_SIZE}B \
+	mkpart primary fat32 ${part_start}B ${BOOT_SIZE}B \
 	set 1 boot on \
-	mkpart primary ext4 $((${PART_START}+${BOOT_SIZE}))B $((${BOOT_SIZE}+${ROOT_SIZE}))B \
-	mkpart primary ext4 $((${PART_START}+${BOOT_SIZE}+${ROOT_SIZE}))B $((${BOOT_SIZE}+${ROOT_SIZE}+${ROOT_SIZE}))B \
-	mkpart primary ext4 $((${PART_START}+${BOOT_SIZE}+${ROOT_SIZE}+${ROOT_SIZE}))B 100%
+	mkpart primary ext4 $((${part_start}+${BOOT_SIZE}))B $((${BOOT_SIZE}+${ROOT_SIZE}))B \
+	mkpart primary ext4 $((${part_start}+${BOOT_SIZE}+${ROOT_SIZE}))B $((${BOOT_SIZE}+${ROOT_SIZE}+${ROOT_SIZE}))B \
+	mkpart primary ext4 $((${part_start}+${BOOT_SIZE}+${ROOT_SIZE}+${ROOT_SIZE}))B 100%
 
 echo "*** Copying original partitons ***"
 oIFS="$IFS"
@@ -46,8 +49,8 @@ for line in $(parted $image_file unit B print | grep primary); do
 	echo $num - $start - $size
 	seek=0
 	[ "$num" = "1" ] && seek=$start
-	[ "$num" = "2" ] && seek=$(((${PART_START}+${BOOT_SIZE})/512))
-	[ "$num" = "3" ] && seek=$(((${PART_START}+${BOOT_SIZE}+${ROOT_SIZE}+${ROOT_SIZE})/512))
+	[ "$num" = "2" ] && seek=$(((${part_start}+${BOOT_SIZE})/512))
+	[ "$num" = "3" ] && seek=$(((${part_start}+${BOOT_SIZE}+${ROOT_SIZE}+${ROOT_SIZE})/512))
 	dd if=$image_file of=$new_image_file bs=512 skip=$start count=$size seek=$seek conv=notrunc
 done
 
@@ -89,7 +92,12 @@ mkfs.vfat -F32 -n bootfs  /dev/mapper/loop${LOOP_DEV}p1
 sleep 3
 mount /dev/mapper/loop${LOOP_DEV}p1 /tmp/rmupdate.mnt
 (cd /tmp/rmupdate.mnt; tar xf /tmp/rmupdate.boot.tar .)
-sed -i -r s"/root=\S+/root=PARTUUID=${partuuid}/" /tmp/rmupdate.mnt/cmdline.txt
+
+bootconf=cmdline.txt
+[ $tinker == 1 ] && bootconf=extlinux/extlinux.conf
+if [ $tinker == 1 ]; then
+	sed -i -r s"/root=\S+/root=PARTUUID=${partuuid}/" /tmp/rmupdate.mnt/${bootconf}
+fi
 umount /tmp/rmupdate.mnt
 
 rm /tmp/rmupdate.boot.tar
