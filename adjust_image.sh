@@ -96,9 +96,7 @@ mount /dev/mapper/loop${LOOP_DEV}p1 /tmp/rmupdate.mnt
 
 bootconf=cmdline.txt
 [ $tinker == 1 ] && bootconf=extlinux/extlinux.conf
-if [ $tinker == 1 ]; then
-	sed -i -r s"/root=\S+/root=PARTUUID=${partuuid}/" /tmp/rmupdate.mnt/${bootconf}
-fi
+sed -i -r s"/root=\S+/root=PARTUUID=${partuuid}/" /tmp/rmupdate.mnt/${bootconf}
 umount /tmp/rmupdate.mnt
 
 rm /tmp/rmupdate.boot.tar
