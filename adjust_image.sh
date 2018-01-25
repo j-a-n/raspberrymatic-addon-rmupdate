@@ -3,7 +3,7 @@
 LOOP_DEV=7
 BOOT_SIZE=$((250*1024*1024))
 ROOT_SIZE=$((1000*1024*1024))
-USR_LOCAL_SIZE=$((2*1024*1024))
+USR_LOCAL_SIZE=$((4*1024*1024))
 
 if [[ $EUID -ne 0 ]]; then
 	echo "This script must be run as root." 1>&2
@@ -28,13 +28,14 @@ echo "image: ${image_file}"
 echo "adjusted image: ${new_image_file}"
 
 echo "*** Creating new image file and partitions ***"
-dd if=/dev/zero of=$new_image_file bs=1M count=$((((${BOOT_SIZE}+${ROOT_SIZE}+${ROOT_SIZE}+${USR_LOCAL_SIZE})/1024/1024)+1))
+dd if=/dev/zero of=$new_image_file bs=512 count=$(( ((${part_start}+${BOOT_SIZE}+${ROOT_SIZE}+${ROOT_SIZE}+${USR_LOCAL_SIZE})/512) ))
+
 parted --script $new_image_file \
 	mklabel msdos \
-	mkpart primary fat32 ${part_start}B ${BOOT_SIZE}B \
+	mkpart primary fat32 ${part_start}B $((${part_start}+${BOOT_SIZE}-512))B \
 	set 1 boot on \
-	mkpart primary ext4 $((${part_start}+${BOOT_SIZE}))B $((${BOOT_SIZE}+${ROOT_SIZE}))B \
-	mkpart primary ext4 $((${part_start}+${BOOT_SIZE}+${ROOT_SIZE}))B $((${BOOT_SIZE}+${ROOT_SIZE}+${ROOT_SIZE}))B \
+	mkpart primary ext4 $((${part_start}+${BOOT_SIZE}))B $((${part_start}+${BOOT_SIZE}+${ROOT_SIZE}-512))B \
+	mkpart primary ext4 $((${part_start}+${BOOT_SIZE}+${ROOT_SIZE}))B $((${part_start}+${BOOT_SIZE}+${ROOT_SIZE}+${ROOT_SIZE}-512))B \
 	mkpart primary ext4 $((${part_start}+${BOOT_SIZE}+${ROOT_SIZE}+${ROOT_SIZE}))B 100%
 
 echo "*** Copying original partitons ***"
@@ -107,12 +108,18 @@ rmdir /tmp/rmupdate.mnt
 #fatresize --size $BOOT_SIZE /dev/mapper/loop${LOOP_DEV}p1
 
 sleep 3
+
+echo "resize /dev/mapper/loop${LOOP_DEV}p2"
 fsck.ext4 -f -y /dev/mapper/loop${LOOP_DEV}p2 || true
 resize2fs /dev/mapper/loop${LOOP_DEV}p2
 tune2fs -L rootfs1 /dev/mapper/loop${LOOP_DEV}p2
 sleep 3
+
+echo "mkfs /dev/mapper/loop${LOOP_DEV}p3"
 mkfs.ext4 -L rootfs2 /dev/mapper/loop${LOOP_DEV}p3 || true
 sleep 3
+
+echo "resize /dev/mapper/loop${LOOP_DEV}p4"
 fsck.ext4 -f -y /dev/mapper/loop${LOOP_DEV}p4 || true
 resize2fs /dev/mapper/loop${LOOP_DEV}p4
 
