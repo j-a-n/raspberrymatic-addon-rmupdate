@@ -35,8 +35,9 @@ proc process {} {
 		} elseif {[lindex $path 1] == "get_firmware_info"} {
 			return [rmupdate::get_firmware_info]
 		} elseif {[lindex $path 1] == "get_system_info"} {
+			set system_type [rmupdate::get_rpi_version]
 			set root_partition [rmupdate::get_current_root_partition]
-			return "\{\"root_partition\":${root_partition}\}"
+			return "\{\"system_type\":\"${system_type}\",\"root_partition\":${root_partition}\}"
 		} elseif {[lindex $path 1] == "get_addon_info"} {
 			return [rmupdate::get_addon_info 1 1 1]
 		} elseif {[lindex $path 1] == "start_install_firmware"} {

@@ -108,6 +108,10 @@ proc ::rmupdate::get_rpi_version {} {
 	set fp [open /proc/cpuinfo r]
 	set data [read $fp]
 	foreach d [split $data "\n"] {
+		regexp {^Hardware\s*:\s*(\S+)} $d match hardware
+		if { [info exists hardware] && $hardware == "Rockchip" } {
+			return "tinkerboard"
+		}
 		regexp {^Revision\s*:\s*(\S+)\s*$} $d match revision
 		if { [info exists revision] && [info exists revision_map($revision)] } {
 			return $revision_map($revision)
@@ -480,7 +484,11 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 					set new_root_partition 3
 				}
 				set part_uuid [get_part_uuid "${sys_dev}p${new_root_partition}"]
-				update_cmdline "${mnt_s}/cmdline.txt" "PARTUUID=${part_uuid}"
+				if { [get_rpi_version] == "tinkerboard" } {
+					update_cmdline "${mnt_s}/extlinux/extlinux.conf" "PARTUUID=${part_uuid}"
+				} else {
+					update_cmdline "${mnt_s}/cmdline.txt" "PARTUUID=${part_uuid}"
+				}
 			}
 		}
 		

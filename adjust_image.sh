@@ -13,6 +13,11 @@ fi
 image_file="$(realpath $1)"
 new_image_file="${image_file/\.img/\.rmupdate\.img}"
 
+if [[ ! -e ${image_file} ]]; then
+	echo "File not found: ${image_file}." 1>&2
+	exit 1
+fi
+
 if [[ ! $image_file =~ .*\.img ]]; then
 	echo "Not an image file: ${image_file}." 1>&2
 	exit 1
@@ -55,7 +60,13 @@ for line in $(parted $image_file unit B print | grep primary); do
 	dd if=$image_file of=$new_image_file bs=512 skip=$start count=$size seek=$seek conv=notrunc
 done
 
-echo "*** Resizing / creating filesystems ***"
+if [ $tinker == 1 ]; then
+	echo "*** Copying boot loader ***"
+	dd if=$image_file of=$new_image_file bs=512 skip=1 count=$((($part_start/512)-2)) seek=1 conv=notrunc
+fi
+
+
+echo "*** Creating / resizing filesystems ***"
 umount /tmp/rmupdate.mnt 2>/dev/null || true
 rmdir /tmp/rmupdate.mnt 2>/dev/null || true
 rm /tmp/rmupdate.boot.tar 2>/dev/null || true
@@ -95,8 +106,11 @@ mount /dev/mapper/loop${LOOP_DEV}p1 /tmp/rmupdate.mnt
 (cd /tmp/rmupdate.mnt; tar xf /tmp/rmupdate.boot.tar .)
 
 bootconf=cmdline.txt
-[ $tinker == 1 ] && bootconf=extlinux/extlinux.conf
-sed -i -r s"/root=\S+/root=PARTUUID=${partuuid}/" /tmp/rmupdate.mnt/${bootconf}
+#[ $tinker == 1 ] && bootconf=extlinux/extlinux.conf
+# /etc/init.d/S00eQ3SystemStart needs adaption before PARTUUID can be used
+if [ $tinker == 0 ]; then
+	sed -i -r s"/root=\S+/root=PARTUUID=${partuuid}/" /tmp/rmupdate.mnt/${bootconf}
+fi
 umount /tmp/rmupdate.mnt
 
 rm /tmp/rmupdate.boot.tar

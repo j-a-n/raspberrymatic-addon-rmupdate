@@ -251,6 +251,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			rest("GET", "/get_system_info", null, function(data) {
 				$("#system-info").empty();
 				$("#system-info").append(
+					$('<div class="sub header">').html(i18next.t('system_type', {'system_type': data.system_type})),
 					$('<div class="sub header">').html(i18next.t('current_root_partiton', {'root_partition': data.root_partition}))
 				);
 			});
@@ -332,6 +333,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							title: 'System update',
 							system_info: 'System information',
 							current_root_partiton: 'Current root partition: {{root_partition}}',
+							system_type: 'System type: {{system_type}}',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Current installed version',
 							latest_available_version: 'Latest available version',
@@ -367,6 +369,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							title: 'System-Aktualisierung',
 							system_info: 'System-Informationen',
 							current_root_partiton: 'Aktuelle Root-Partition: {{root_partition}}',
+							system_type: 'System-Typ: {{system_type}}',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Momentan installierte Version',
 							latest_available_version: 'Aktuellste verfügbare Version',
