@@ -23,7 +23,7 @@ case "$1" in
 
 	uninstall)
 		logger -t homematic -p user.info "removing addon ${ADDON_NAME}"
-		"/usr/local/addons/cuxd/update_addon" ${ADDON_NAME} || true
+		"${ADDON_DIR}/update_addon" ${ADDON_NAME} || true
 
 		[ -e "${ADDON_DIR}" ] && rm -rf "${ADDON_DIR}"
 		[ -L "${CONFIG_DIR}/addons/www/${ADDON_NAME}" ] && rm "${CONFIG_DIR}/addons/www/${ADDON_NAME}"
