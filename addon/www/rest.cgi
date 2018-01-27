@@ -68,8 +68,18 @@ proc process {} {
 			}
 		} elseif {[lindex $path 1] == "install_addon"} {
 			regexp {\"addon_id\"\s*:\s*\"([^\"]+)\"} $data match addon_id
+			if { ![info exists addon_id] } {
+				set addon_id ""
+			}
+			regexp {\"download_url\"\s*:\s*\"([^\"]+)\"} $data match download_url
+			if { ![info exists download_url] } {
+				set download_url ""
+			}
+			return "\"[rmupdate::install_addon $addon_id $download_url]\""
+		} elseif {[lindex $path 1] == "uninstall_addon"} {
+			regexp {\"addon_id\"\s*:\s*\"([^\"]+)\"} $data match addon_id
 			if { [info exists addon_id] && $addon_id != "" } {
-				return "\"[rmupdate::install_addon $addon_id]\""
+				return "\"[rmupdate::uninstall_addon $addon_id]\""
 			} else {
 				error "Invalid addon_id: ${addon_id}"
 			}

@@ -67,6 +67,9 @@ proc ::rmupdate::i18n {str} {
 		if {$str == "System will reboot now."} { return "Das System wird jetzt neu gestartet." }
 		if {$str == "Latest firmware version: %s"} { return "Aktuellste Firmware-Version: %s" }
 		if {$str == "Current firmware version: %s"} { return "Installierte Firmware-Version: %s" }
+		if {$str == "Download url missing."} { return "Download-URL fehlt." }
+		if {$str == "Addon %s successfully installed."} { return "Addon %s erfolgreich installiert." }
+		if {$str == "Addon %s successfully uninstalled."} { return "Addon %s erfolgreich deinstalliert." }
 	}
 	return $str
 }
@@ -924,7 +927,7 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 	}
 }
 
-proc ::rmupdate::install_addon {addon_id} {
+proc ::rmupdate::uninstall_addon {addon_id} {
 	variable rc_dir
 	
 	if {[get_running_installation] != ""} {
@@ -933,12 +936,43 @@ proc ::rmupdate::install_addon {addon_id} {
 	
 	set_running_installation "Addon ${addon_id}"
 	
-	array set addon [get_addon_info 1 1 0 $addon_id]
-	set download_url $addon(${addon_id}::download_url)
+	write_log 3 "Uninstalling addon"
+	if { [catch {
+		exec "${rc_dir}/${addon_id}" uninstall
+	} errormsg] } {
+		write_log 2 "${rc_dir}/${addon_id} uninstall failed: ${errormsg}"
+	}
+	
+	write_log 3 "Addon ${addon_id} successfully uninstalled"
+	
+	set_running_installation ""
+	
+	return [format [i18n "Addon %s successfully uninstalled."] $addon_id]
+}
+
+proc ::rmupdate::install_addon {{addon_id ""} {download_url ""}} {
+	variable rc_dir
+	
+	if {[get_running_installation] != ""} {
+		error [i18n "Another install process is running."]
+	}
+	
+	if {$addon_id != ""} {
+		array set addon [get_addon_info 1 1 0 $addon_id]
+		set download_url $addon(${addon_id}::download_url)
+	}
+	
+	if {$download_url == ""} {
+		error [i18n "Download url missing."]
+	}
+	if {$addon_id == ""} {
+		set addon_id "unknown"
+	}
+	
+	set_running_installation "Addon ${addon_id}"
 	
 	write_log 3 "Downloading addon from ${download_url}."
-	regexp {/([^/]+)$} $download_url match archive_file
-	set archive_file "/tmp/${archive_file}"
+	set archive_file "/tmp/${addon_id}.tar.gz"
 	if {[file exists $archive_file]} {
 		file delete $archive_file
 	}
@@ -957,7 +991,11 @@ proc ::rmupdate::install_addon {addon_id} {
 	
 	write_log 3 "Running update_script"
 	file attributes update_script -permissions 0755
-	exec ./update_script noreboot
+	if { [catch {
+		exec ./update_script noreboot
+	} errormsg] } {
+		write_log 2 "Addon update_script failed: ${errormsg}"
+	}
 	
 	cd /tmp
 	
@@ -975,7 +1013,7 @@ proc ::rmupdate::install_addon {addon_id} {
 	
 	set_running_installation ""
 	
-	return "Addon ${addon_id} successfully installed"
+	return [format [i18n "Addon %s successfully installed."] $addon_id]
 }
 
 #puts [rmupdate::get_latest_firmware_version]

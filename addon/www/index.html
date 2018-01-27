@@ -231,8 +231,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 				$("#firmware-summary").empty();
 				$("#firmware-summary").append(
-					$('<div class="sub header">').html(i18next.t('current_installed_version') + ': <span style="color:'+ color +'">' + current_firmware + '</span>'),
-					$('<div class="sub header">').html(i18next.t('latest_available_version') + ': ' + latest_firmware)
+					$('<div class="ui item">').html(i18next.t('current_installed_version') + ': <span style="color:'+ color +'">' + current_firmware + '</span>'),
+					$('<div class="ui item">').html(i18next.t('latest_available_version') + ': ' + latest_firmware)
 				);
 				if (current_firmware != latest_firmware) {
 					$("#firmware-summary").append(
@@ -251,32 +251,64 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			rest("GET", "/get_system_info", null, function(data) {
 				$("#system-info").empty();
 				$("#system-info").append(
-					$('<div class="sub header">').html(i18next.t('system_type', {'system_type': data.system_type})),
-					$('<div class="sub header">').html(i18next.t('current_root_partiton', {'root_partition': data.root_partition}))
+					$('<div class="item">').html(i18next.t('system_type', {'system_type': data.system_type})),
+					$('<div class="item">').html(i18next.t('current_root_partiton', {'root_partition': data.root_partition}))
 				);
 			});
 		}
 		
-		function install_addon(addon_id) {
+		function install_addon(addon_id, download_url) {
 			if (!running_installation) {
-				display_message('info', 'Installing addon ' + addon_id + '.', 6000000);
+				display_message('info', i18next.t('installing_addon', {'addon_id': addon_id}), 6000000);
 				$('[data-update-addon-id="' + addon_id + '"]').addClass('loading');
 				$('[data-update-addon-id="' + addon_id + '"]').addClass('disabled');
-				rest("POST", "/install_addon", JSON.stringify({"addon_id":addon_id}),
+				$('[data-uninstall-addon-id="' + addon_id + '"]').addClass('disabled');
+				$('#install-addon-url-button').addClass('disabled');
+				rest("POST", "/install_addon", JSON.stringify({"addon_id":addon_id, "download_url":download_url}),
 					function(data) {
 						//console.info(data);
 						$('[data-update-addon-id="' + addon_id + '"]').removeClass('loading');
 						$('[data-update-addon-id="' + addon_id + '"]').removeClass('disabled');
+						$('[data-uninstall-addon-id="' + addon_id + '"]').removeClass('disabled');
+						$('#install-addon-url-button').removeClass('disabled');
+						$('#install-addon-url-input').val('');
 						$('#tr-' + addon_id).removeClass('warning');
 						$('#tr-' + addon_id).addClass('positive');
 						$('#button-update-' + addon_id).removeClass('green');
 						$('#button-update-' + addon_id).addClass('gray');
 						$('#label-version-' + addon_id).text($('#label-available-version-' + addon_id).text());
 						display_message('success', data, 6000000);
+						get_addon_info();
 					},
 					function(xhr, ajaxOptions, thrownError) {
 						console.error("Addon installation error: " + thrownError + ": " + xhr.responseText);
 						$('[data-update-addon-id="' + addon_id + '"]').removeClass('loading');
+						$('[data-update-addon-id="' + addon_id + '"]').removeClass('disabled');
+						$('[data-uninstall-addon-id="' + addon_id + '"]').removeClass('disabled');
+						$('#install-addon-url-input').val('');
+						$('#install-addon-url-button').removeClass('disabled');
+						default_error_callback(xhr, ajaxOptions, thrownError);
+					}
+				);
+			}
+		}
+		
+		function uninstall_addon(addon_id) {
+			if (!running_installation) {
+				display_message('info', i18next.t('uninstalling_addon', {'addon_id': addon_id}), 6000000);
+				$('[data-uninstall-addon-id="' + addon_id + '"]').addClass('loading');
+				$('[data-uninstall-addon-id="' + addon_id + '"]').addClass('disabled');
+				$('[data-update-addon-id="' + addon_id + '"]').addClass('disabled');
+				rest("POST", "/uninstall_addon", JSON.stringify({"addon_id":addon_id}),
+					function(data) {
+						//console.info(data);
+						display_message('success', data, 6000000);
+						$('#tr-' + addon_id).remove();
+					},
+					function(xhr, ajaxOptions, thrownError) {
+						console.error("Addon installation error: " + thrownError + ": " + xhr.responseText);
+						$('[data-uninstall-addon-id="' + addon_id + '"]').removeClass('loading');
+						$('[data-uninstall-addon-id="' + addon_id + '"]').removeClass('disabled');
 						$('[data-update-addon-id="' + addon_id + '"]').removeClass('disabled');
 						default_error_callback(xhr, ajaxOptions, thrownError);
 					}
@@ -310,13 +342,30 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						win.focus();
 					});
 					
+					var buninstall = $('<div class="ui orange basic button">')
+						.attr('data-uninstall-addon-id', addon.id)
+						.append($('<i class="remove icon">'), i18next.t('uninstall'));
+					buninstall.click(function() {
+						var addon_id = this.getAttribute('data-uninstall-addon-id');
+						$('#modal-uninstall-addon').modal({
+							onDeny: function(){
+								return true;
+							},
+							onApprove: function() {
+								uninstall_addon(addon_id);
+								return true;
+							}
+						})
+						.modal('show');
+					});
+					
 					var cls = (((!addon.available_version) || (addon.version == addon.available_version)) ? "positive" : "warning");
 					var available_version = ((addon.available_version) ? addon.available_version : "?");
 					$("#addon-info tbody").append($('<tr class="' + cls + '" id="tr-' + addon.id + '">').append(
 						$('<td>').append($('<label>' + addon.name + '</label>')),
 						$('<td>').append($('<label id="label-version-' + addon.id + '">' + addon.version + '</label>')),
 						$('<td>').append($('<label id="label-available-version-' + addon.id + '">' + available_version + '</label>')),
-						$('<td class="center aligned">').append(bupdate, bconfig)
+						$('<td class="center aligned">').append(bupdate, bconfig, buninstall)
 					));
 				});
 				$('#dimmer-addon-info').removeClass('active');
@@ -361,7 +410,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							delete_firmware_img_success: 'Firmware image {{version}} successfully deleted.',
 							installing_firmware: 'Installing firmware {{version}}.',
 							install_latest_firmware: 'Install latest firmware',
-							system_not_upgradeable: 'System not upgradeable or filesystem to small!'
+							system_not_upgradeable: 'System not upgradeable or filesystem to small!',
+							uninstall: 'Uninstall',
+							cancel: 'Canel',
+							uninstall_addon: 'Uninstall addon',
+							sure_to_uninstall_addon: 'Are you sure you want to uninstall this addon?',
+							installing_addon: 'Installing addon {{addon_id}}.',
+							uninstalling_addon: 'Uninstalling addon {{addon_id}}.',
+							install_addon_from_url: 'Install addon from url',
 						}
 					},
 					de: {
@@ -397,7 +453,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							delete_firmware_img_success: 'Firmware-Image {{version}} erfolgreich gelöscht.',
 							installing_firmware: 'Installiere Firmware {{version}}.',
 							install_latest_firmware: 'Aktuellste Firmware installieren',
-							system_not_upgradeable: 'System nicht aktualisierbar oder Dateisystem zu klein!'
+							system_not_upgradeable: 'System nicht aktualisierbar oder Dateisystem zu klein!',
+							uninstall: 'Deinstallieren',
+							cancel: 'Abbrechen',
+							uninstall_addon: 'Addon deinstallieren',
+							sure_to_uninstall_addon: 'Sind sie sicher, dass sie dieses Addon deinstallieren wollen?',
+							installing_addon: 'Installiere Addon {{addon_id}}.',
+							uninstalling_addon: 'Deinstalliere Addon {{addon_id}}.',
+							install_addon_from_url: 'Addon von URL installieren',
 						}
 					}
 				}
@@ -427,15 +490,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 </head>
 <body>
 	<div style="padding-top: 5vw; padding-bottom: 5vw" class="ui container">
-		<h1 class="ui header" data-i18n="title"></h1>
+		<h1 class="ui center aligned dividing header" data-i18n="title"></h1>
+		
 		<div id="message" class="ui message hidden">
 		</div>
-		<h2 class="ui dividing header" data-i18n="system_info"></h2>
-		<div class="content" id="system-info">
+		
+		<h2 class="ui header">
+			<i class="info icon"></i>
+			<div data-i18n="system_info" class="content">
+			</div>
+		</h2>
+		<div class="ui list" id="system-info">
 		</div>
 		
-		<h2 class="ui dividing header" data-i18n="firmwares"></h2>
-		<div class="content" id="firmware-summary">
+		<h2 class="ui header">
+			<i class="settings icon"></i>
+			<div data-i18n="firmwares" class="content">
+			</div>
+		</h2>
+		<div class="ui list" id="firmware-summary">
 		</div>
 		
 		<div class="dimmable">
@@ -465,7 +538,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			</div>
 		</div>
 		
-		<h2 class="ui dividing header" data-i18n="addons"></h2>
+		<h2 class="ui header">
+			<i class="plug icon"></i>
+			<div data-i18n="addons" class="content">
+			</div>
+		</h2>
 		<div class="dimmable">
 			<div id="dimmer-addon-info" class="ui active inverted dimmer">
 				<div class="ui loader" data-i18n="loading"></div>
@@ -483,7 +560,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				</tbody>
 			</table>
 		</div>
-		
+		<h2 class="ui header">
+			<i class="cloud download icon"></i>
+			<div data-i18n="install_addon_from_url" class="content">
+			</div>
+		</h2>
+		<div style="width: 100%" class="ui action input">
+			<input id="install-addon-url-input" type="text" placeholder="http://.../addon.tar.gz"/>
+			<button id="install-addon-url-button" class="ui green right labeled icon button" onclick="install_addon(null, $('#install-addon-url-input').val());">
+			<i class="sign in icon"></i>
+				Install
+			</button>
+		</div>
 	</div>
 	
 	<div style="height:60vh;" id="modal-log" class="ui modal">
@@ -502,5 +590,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			</div>
 		</div>
 	</div>
+	
+	<div id="modal-uninstall-addon" class="ui small basic modal transition scrolling">
+		<div data-i18n="uninstall_addon" class="header"></div>
+		<div class="content">
+			<p data-i18n="sure_to_uninstall_addon"></p>
+		</div>
+		<div class="actions">
+			<div data-i18n="cancel" class="ui gray basic cancel inverted button">
+			</div>
+			<div data-i18n="uninstall" class="ui red approve inverted button">
+			</div>
+		</div>
+	</div>
+	
 </body>
 </html>
