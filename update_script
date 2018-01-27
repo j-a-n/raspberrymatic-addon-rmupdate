@@ -57,6 +57,7 @@ fi
 
 echo "add menu entry" >>$LOG_FILE
 touch "${CONFIG_DIR}/hm_addons.cfg"
+chmod 755 ${ADDON_DIR}/update_addon
 ${ADDON_DIR}/update_addon ${ADDON_NAME} "${ADDON_DIR}/etc/${ADDON_NAME}-addon.cfg"
 
 sync
