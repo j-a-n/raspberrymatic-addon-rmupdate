@@ -749,8 +749,7 @@ proc ::rmupdate::install_firmware_version {version lang {reboot 1} {dryrun 0}} {
 	after 5000
 	
 	if {$reboot && !$dryrun} {
-		exec /bin/sync
-		exec /sbin/reboot -f
+		exec /sbin/reboot
 	}
 }
 
