@@ -278,6 +278,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							$('#tr-' + addon_id).addClass('positive');
 							$('#button-update-' + addon_id).removeClass('green');
 							$('#button-update-' + addon_id).addClass('gray');
+							$('#button-update-' + addon_id).contents().last()[0].textContent = i18next.t('reinstall');
 							$('#label-version-' + addon_id).text($('#label-available-version-' + addon_id).text());
 						}
 						else {
