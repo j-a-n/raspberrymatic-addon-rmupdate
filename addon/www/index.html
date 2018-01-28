@@ -270,15 +270,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						$('[data-update-addon-id="' + addon_id + '"]').removeClass('loading');
 						$('[data-update-addon-id="' + addon_id + '"]').removeClass('disabled');
 						$('[data-uninstall-addon-id="' + addon_id + '"]').removeClass('disabled');
-						$('#install-addon-url-button').removeClass('disabled');
-						$('#install-addon-url-input').val('');
-						$('#tr-' + addon_id).removeClass('warning');
-						$('#tr-' + addon_id).addClass('positive');
-						$('#button-update-' + addon_id).removeClass('green');
-						$('#button-update-' + addon_id).addClass('gray');
-						$('#label-version-' + addon_id).text($('#label-available-version-' + addon_id).text());
 						display_message('success', data, 6000000);
-						get_addon_info();
+						if (addon_id) {
+							$('#install-addon-url-button').removeClass('disabled');
+							$('#install-addon-url-input').val('');
+							$('#tr-' + addon_id).removeClass('warning');
+							$('#tr-' + addon_id).addClass('positive');
+							$('#button-update-' + addon_id).removeClass('green');
+							$('#button-update-' + addon_id).addClass('gray');
+							$('#label-version-' + addon_id).text($('#label-available-version-' + addon_id).text());
+						}
+						else {
+							get_addon_info();
+						}
 					},
 					function(xhr, ajaxOptions, thrownError) {
 						console.error("Addon installation error: " + thrownError + ": " + xhr.responseText);
