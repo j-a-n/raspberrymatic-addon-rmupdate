@@ -23,12 +23,26 @@ proc process {} {
 	global env
 	if { [info exists env(QUERY_STRING)] } {
 		set query $env(QUERY_STRING)
+		set path [split $query {/}]
+		set plen [expr [llength $path] - 1]
+		
+		if {[lindex $path 1] == "install_addon_archive"} {
+			set archive_file "/tmp/uploaded_addon.tar.gz"
+			catch {fconfigure stdin -translation binary}
+			catch {fconfigure stdin -encoding binary}
+			set out [open $archive_file w]
+			catch {fconfigure $out -translation binary}
+			catch {fconfigure $out -encoding binary}
+			puts -nonewline $out [read stdin]
+			close $out
+			set res [rmupdate::install_addon "" "file://${archive_file}"]
+			return "\"${res}\""
+		}
+		
 		set data ""
 		if { [info exists env(CONTENT_LENGTH)] } {
 			set data [read stdin $env(CONTENT_LENGTH)]
 		}
-		set path [split $query {/}]
-		set plen [expr [llength $path] - 1]
 		
 		if {[lindex $path 1] == "version"} {
 			return "\"[rmupdate::version]\""

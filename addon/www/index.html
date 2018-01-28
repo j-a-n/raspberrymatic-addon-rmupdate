@@ -257,44 +257,80 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
-		function install_addon(addon_id, download_url) {
+		function upload_and_install_addon() {
+			
+		}
+		
+		function install_addon(addon_id, download_url, file_input) {
 			if (!running_installation) {
 				display_message('info', i18next.t('installing_addon', {'addon_id': addon_id}), 6000000);
-				$('[data-update-addon-id="' + addon_id + '"]').addClass('loading');
-				$('[data-update-addon-id="' + addon_id + '"]').addClass('disabled');
-				$('[data-uninstall-addon-id="' + addon_id + '"]').addClass('disabled');
+				if (addon_id) {
+					$('[data-update-addon-id="' + addon_id + '"]').addClass('loading');
+					$('[data-update-addon-id="' + addon_id + '"]').addClass('disabled');
+					$('[data-uninstall-addon-id="' + addon_id + '"]').addClass('disabled');
+				}
+				if (download_url) {
+					$('#install-addon-url-button').addClass('loading');
+				}
+				if (file_input) {
+					$('#install-addon-file-button').addClass('loading');
+				}
 				$('#install-addon-url-button').addClass('disabled');
-				rest("POST", "/install_addon", JSON.stringify({"addon_id":addon_id, "download_url":download_url}),
-					function(data) {
-						//console.info(data);
-						$('[data-update-addon-id="' + addon_id + '"]').removeClass('loading');
-						$('[data-update-addon-id="' + addon_id + '"]').removeClass('disabled');
-						$('[data-uninstall-addon-id="' + addon_id + '"]').removeClass('disabled');
-						$('#install-addon-url-button').removeClass('disabled');
-						display_message('success', data, 6000000);
-						if (addon_id) {
-							$('#tr-' + addon_id).removeClass('warning');
-							$('#tr-' + addon_id).addClass('positive');
-							$('#button-update-' + addon_id).removeClass('green');
-							$('#button-update-' + addon_id).addClass('gray');
-							$('#button-update-' + addon_id).contents().last()[0].textContent = i18next.t('reinstall');
-							$('#label-version-' + addon_id).text($('#label-available-version-' + addon_id).text());
-						}
-						else {
-							$('#install-addon-url-input').val('');
-							get_addon_info();
-						}
-					},
-					function(xhr, ajaxOptions, thrownError) {
-						console.error("Addon installation error: " + thrownError + ": " + xhr.responseText);
-						$('[data-update-addon-id="' + addon_id + '"]').removeClass('loading');
-						$('[data-update-addon-id="' + addon_id + '"]').removeClass('disabled');
-						$('[data-uninstall-addon-id="' + addon_id + '"]').removeClass('disabled');
-						$('#install-addon-url-input').val('');
-						$('#install-addon-url-button').removeClass('disabled');
-						default_error_callback(xhr, ajaxOptions, thrownError);
+				$('#install-addon-file-button').addClass('disabled');
+				var success_callback = function(data) {
+					//console.info(data);
+					$('[data-update-addon-id="' + addon_id + '"]').removeClass('loading');
+					$('[data-update-addon-id="' + addon_id + '"]').removeClass('disabled');
+					$('[data-uninstall-addon-id="' + addon_id + '"]').removeClass('disabled');
+					$('#install-addon-url-button').removeClass('disabled');
+					$('#install-addon-url-button').removeClass('loading');
+					$('#install-addon-file-button').removeClass('disabled');
+					$('#install-addon-file-button').removeClass('loading');
+					display_message('success', data, 6000000);
+					if (addon_id) {
+						$('#tr-' + addon_id).removeClass('warning');
+						$('#tr-' + addon_id).addClass('positive');
+						$('#button-update-' + addon_id).removeClass('green');
+						$('#button-update-' + addon_id).addClass('gray');
+						$('#button-update-' + addon_id).contents().last()[0].textContent = i18next.t('reinstall');
+						$('#label-version-' + addon_id).text($('#label-available-version-' + addon_id).text());
 					}
-				);
+					else {
+						$('#install-addon-url-input').val('');
+						$('#install-addon-file-input').val('');
+						get_addon_info();
+					}
+				}
+				var error_callback = function(xhr, ajaxOptions, thrownError) {
+					console.error("Addon installation error: " + thrownError + ": " + xhr.responseText);
+					$('[data-update-addon-id="' + addon_id + '"]').removeClass('loading');
+					$('[data-update-addon-id="' + addon_id + '"]').removeClass('disabled');
+					$('[data-uninstall-addon-id="' + addon_id + '"]').removeClass('disabled');
+					$('#install-addon-url-input').val('');
+					$('#install-addon-file-input').val('');
+					$('#install-addon-url-button').removeClass('disabled');
+					$('#install-addon-url-button').removeClass('loading');
+					$('#install-addon-file-button').removeClass('disabled');
+					$('#install-addon-file-button').removeClass('loading');
+					default_error_callback(xhr, ajaxOptions, thrownError);
+				}
+				
+				if (file_input) {
+					$.ajax({
+						url: 'rest.cgi?/install_addon_archive',
+						data: file_input.files[0],
+						type: 'POST',
+						processData: false,
+						contentType: 'application/octet-stream',
+						success: success_callback,
+						error: error_callback
+					});
+				}
+				else {
+					rest("POST", "/install_addon", JSON.stringify({"addon_id":addon_id, "download_url":download_url}),
+						success_callback, error_callback
+					);
+				}
 			}
 		}
 		
@@ -423,6 +459,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							installing_addon: 'Installing addon {{addon_id}}.',
 							uninstalling_addon: 'Uninstalling addon {{addon_id}}.',
 							install_addon_from_url: 'Install addon from url',
+							install_addon_from_file: 'Install addon from file',
+							choose_addon_file: 'Choose and install addon-file',
 						}
 					},
 					de: {
@@ -466,6 +504,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							installing_addon: 'Installiere Addon {{addon_id}}.',
 							uninstalling_addon: 'Deinstalliere Addon {{addon_id}}.',
 							install_addon_from_url: 'Addon von URL installieren',
+							install_addon_from_file: 'Addon aus Datei installieren',
+							choose_addon_file: 'Addon-Datei auswählen und installieren',
 						}
 					}
 				}
@@ -477,6 +517,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$('div').localize();
 				$('th').localize();
 				$('label').localize();
+				$('#install-addon-url-button').contents().last()[0].textContent = i18next.t('install');
+				$('#install-addon-file-button').contents().last()[0].textContent = i18next.t('choose_addon_file');
 			});
 			
 			rest("GET", "/version", null, function(version) {
@@ -565,6 +607,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				</tbody>
 			</table>
 		</div>
+		
 		<h2 class="ui header">
 			<i class="cloud download icon"></i>
 			<div data-i18n="install_addon_from_url" class="content">
@@ -573,9 +616,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		<div style="width: 100%" class="ui action input">
 			<input id="install-addon-url-input" type="text" placeholder="http://.../addon.tar.gz"/>
 			<button id="install-addon-url-button" class="ui green right labeled icon button" onclick="install_addon(null, $('#install-addon-url-input').val());">
-			<i class="sign in icon"></i>
-				Install
+				<i class="sign in icon"></i>
+				install
 			</button>
+		</div>
+		
+		<h2 class="ui header">
+			<i class="upload icon"></i>
+			<div data-i18n="install_addon_from_file" class="content">
+			</div>
+		</h2>
+		<div style="width: 100%" class="ui action input">
+			<input class="inputfile" id="install-addon-file-input" type="file" onchange="install_addon(null, null, this);" style="display: none;"/>
+			<label id="install-addon-file-button" for="install-addon-file-input" class="ui green button">
+				<i class="ui file archive outline icon"></i>
+				choose_addon_file
+			</label>
 		</div>
 	</div>
 	

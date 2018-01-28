@@ -971,13 +971,18 @@ proc ::rmupdate::install_addon {{addon_id ""} {download_url ""}} {
 	
 	set_running_installation "Addon ${addon_id}"
 	
-	write_log 3 "Downloading addon from ${download_url}."
-	set archive_file "/tmp/${addon_id}.tar.gz"
-	if {[file exists $archive_file]} {
-		file delete $archive_file
+	set archive_file ""
+	regexp {^file://(.*)$} $download_url match archive_file
+	if { [info exists archive_file] && $archive_file != "" } {
+		write_log 3 "Installing addon from local file ${archive_file}."
+	} else {
+		write_log 3 "Downloading addon from ${download_url}."
+		set archive_file "/tmp/${addon_id}.tar.gz"
+		if {[file exists $archive_file]} {
+			file delete $archive_file
+		}
+		exec /usr/bin/wget "${download_url}" --no-check-certificate --quiet --output-document=$archive_file
 	}
-	
-	exec /usr/bin/wget "${download_url}" --no-check-certificate --quiet --output-document=$archive_file
 	
 	write_log 3 "Extracting archive ${archive_file}."
 	set tmp_dir "/tmp/rmupdate_addon_install_${addon_id}"
