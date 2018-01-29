@@ -38,12 +38,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		var current_firmware = '?';
 		var latest_firmware = '?';
 		
-		function display_message(type, html, millis) {
+		function display_message(type, text, millis) {
 			clear_message();
-			$('#message').html(html);
+			$('#message').contents().last()[0].textContent = text;
 			$('#message').attr('class', 'ui ' + type + ' message visible');
-			$('#message-log').html(html);
-			$('#message-log').attr('class', 'ui ' + type + ' message visible');
 			message_timer_id = setTimeout(clear_message, millis);
 		}
 		
@@ -52,10 +50,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				clearTimeout(message_timer_id);
 			}
 			message_timer_id = null;
-			$('#message').html('');
+			$('#message').contents().last()[0].textContent = '';
 			$('#message').attr('class', 'ui message hidden');
-			$('#message-log').html('');
-			$('#message-log').attr('class', 'ui message hidden');
 		}
 		
 		function default_error_callback(xhr, ajaxOptions, thrownError) {
@@ -69,7 +65,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			}
 			catch(e) {
 			}
-			display_message('error', i18next.t('error_occurred', {'error': err}), 6000000);
+			display_message('error', i18next.t('error_occurred', {'error': err}), 10000);
 		}
 		
 		function rest(method, path, data, success_callback, error_callback) {
@@ -86,27 +82,46 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
+		function disable_buttons() {
+			$('[data-install-firmware-version]').addClass('disabled');
+			$('[data-delete-firmware-version]').addClass('disabled');
+			$('[data-update-addon-id]').addClass('disabled');
+			$('[data-uninstall-addon-id]').addClass('disabled');
+			$('#install-addon-url-button').addClass('disabled');
+			$('#install-addon-file-button').addClass('disabled');
+		}
+		
+		function reset_buttons() {
+			$('[data-install-firmware-version]').removeClass('loading');
+			$('[data-install-firmware-version]').removeClass('disabled');
+			$('[data-delete-firmware-version]').removeClass('disabled');
+			$('[data-update-addon-id]').removeClass('loading');
+			$('[data-update-addon-id]').removeClass('disabled');
+			$('[data-uninstall-addon-id]').removeClass('disabled');
+			$('[data-uninstall-addon-id]').removeClass('loading');
+			$('#install-addon-url-button').removeClass('disabled');
+			$('#install-addon-url-button').removeClass('loading');
+			$('#install-addon-file-button').removeClass('disabled');
+			$('#install-addon-file-button').removeClass('loading');
+		}
+		
 		function set_running_installation(installation_info, error) {
 			//console.info("set_running_installation: |" + installation_info + "|" + running_installation + "|" + error);
 			var firmware_regex = /firmware\s+(.*)/i;
 			if (running_installation && (!installation_info)) {
 				// Running installation finished
 				var match = firmware_regex.exec(running_installation);
-				if (match != null) {
-					var version = match[1];
-					$('[data-install-firmware-version="' + version + '"]').removeClass('loading');
-					$('[data-delete-version="' + version + '"]').removeClass('disabled');
-				}
 				if (error) {
 					$('#install-progress').progress("set error");
-					display_message('error', i18next.t('installation_failed', {'what': running_installation, 'error': error}), 6000000);
+					display_message('error', i18next.t('installation_failed', {'what': running_installation, 'error': error}), 4*3600000);
 				}
 				else {
 					$('#install-progress').progress("set success");
-					display_message('success', i18next.t('installation_success', {'what': running_installation}), 6000000);
+					display_message('success', i18next.t('installation_success', {'what': running_installation}), 4*3600000);
 				}
 				$('#modal-log').modal('refresh');
 				$('#log-content').scrollTop($('#log-content').prop("scrollHeight"));
+				reset_buttons();
 			}
 			
 			running_installation = installation_info;
@@ -115,8 +130,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				var match = firmware_regex.exec(running_installation);
 				if (match != null) {
 					var version = match[1];
+					display_message('info', i18next.t('installing_firmware', {'version': version}), 3600000);
+					disable_buttons();
 					$('[data-install-firmware-version="' + version + '"]').addClass('loading');
-					$('[data-delete-version="' + version + '"]').addClass('disabled');
+					$('[data-install-firmware-version="' + version + '"]').removeClass('disabled');
 				}
 			}
 		}
@@ -167,8 +184,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			if (!running_installation) {
 				var reboot = $('#reboot-after-install').is(':checked');
 				var dryrun = $('#dryrun').is(':checked');
-				display_message('info', i18next.t('installing_firmware', {'version': version}), 6000000);
-				clear_message();
 				set_running_installation("Firmware " + version);
 				rest("POST", "/start_install_firmware", JSON.stringify({"language": language, "version":version, "reboot":reboot, "dryrun":dryrun}),
 					function(data) {
@@ -208,9 +223,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					var bcls = '';
 					if (!fw.image) bcls = 'disabled';
 					if (fw.version == running_installation) bcls = 'loading';
-					var bdelete = $('<div class="ui orange basic '+ bcls +' button">').attr('data-delete-version', fw.version).append($('<i class="delete icon">'), i18next.t('delete_download'));
+					var bdelete = $('<div class="ui orange basic '+ bcls +' button">').attr('data-delete-firmware-version', fw.version).append($('<i class="delete icon">'), i18next.t('delete_download'));
 					bdelete.click(function() {
-						delete_firmware_image(this.getAttribute('data-delete-version'));
+						delete_firmware_image(this.getAttribute('data-delete-firmware-version'));
 					});
 					
 					var available = (fw.url ? 'checked=""' : '')
@@ -257,17 +272,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
-		function upload_and_install_addon() {
-			
-		}
-		
 		function install_addon(addon_id, download_url, file_input) {
 			if (!running_installation) {
-				display_message('info', i18next.t('installing_addon', {'addon_id': addon_id}), 6000000);
+				display_message('info', i18next.t('installing_addon', {'addon_id': addon_id}), 180000);
 				if (addon_id) {
 					$('[data-update-addon-id="' + addon_id + '"]').addClass('loading');
-					$('[data-update-addon-id="' + addon_id + '"]').addClass('disabled');
-					$('[data-uninstall-addon-id="' + addon_id + '"]').addClass('disabled');
 				}
 				if (download_url) {
 					$('#install-addon-url-button').addClass('loading');
@@ -275,18 +284,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				if (file_input) {
 					$('#install-addon-file-button').addClass('loading');
 				}
-				$('#install-addon-url-button').addClass('disabled');
-				$('#install-addon-file-button').addClass('disabled');
+				disable_buttons();
 				var success_callback = function(data) {
 					//console.info(data);
-					$('[data-update-addon-id="' + addon_id + '"]').removeClass('loading');
-					$('[data-update-addon-id="' + addon_id + '"]').removeClass('disabled');
-					$('[data-uninstall-addon-id="' + addon_id + '"]').removeClass('disabled');
-					$('#install-addon-url-button').removeClass('disabled');
-					$('#install-addon-url-button').removeClass('loading');
-					$('#install-addon-file-button').removeClass('disabled');
-					$('#install-addon-file-button').removeClass('loading');
-					display_message('success', data, 6000000);
+					reset_buttons();
+					display_message('success', data, 5000);
 					if (addon_id) {
 						$('#tr-' + addon_id).removeClass('warning');
 						$('#tr-' + addon_id).addClass('positive');
@@ -303,15 +305,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 				var error_callback = function(xhr, ajaxOptions, thrownError) {
 					console.error("Addon installation error: " + thrownError + ": " + xhr.responseText);
-					$('[data-update-addon-id="' + addon_id + '"]').removeClass('loading');
-					$('[data-update-addon-id="' + addon_id + '"]').removeClass('disabled');
-					$('[data-uninstall-addon-id="' + addon_id + '"]').removeClass('disabled');
+					reset_buttons();
 					$('#install-addon-url-input').val('');
 					$('#install-addon-file-input').val('');
-					$('#install-addon-url-button').removeClass('disabled');
-					$('#install-addon-url-button').removeClass('loading');
-					$('#install-addon-file-button').removeClass('disabled');
-					$('#install-addon-file-button').removeClass('loading');
 					default_error_callback(xhr, ajaxOptions, thrownError);
 				}
 				
@@ -336,21 +332,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		
 		function uninstall_addon(addon_id) {
 			if (!running_installation) {
-				display_message('info', i18next.t('uninstalling_addon', {'addon_id': addon_id}), 6000000);
+				display_message('info', i18next.t('uninstalling_addon', {'addon_id': addon_id}), 180000);
+				disable_buttons();
 				$('[data-uninstall-addon-id="' + addon_id + '"]').addClass('loading');
-				$('[data-uninstall-addon-id="' + addon_id + '"]').addClass('disabled');
-				$('[data-update-addon-id="' + addon_id + '"]').addClass('disabled');
 				rest("POST", "/uninstall_addon", JSON.stringify({"addon_id":addon_id}),
 					function(data) {
 						//console.info(data);
-						display_message('success', data, 6000000);
+						display_message('success', data, 5000);
+						reset_buttons();
 						$('#tr-' + addon_id).remove();
 					},
 					function(xhr, ajaxOptions, thrownError) {
 						console.error("Addon installation error: " + thrownError + ": " + xhr.responseText);
-						$('[data-uninstall-addon-id="' + addon_id + '"]').removeClass('loading');
-						$('[data-uninstall-addon-id="' + addon_id + '"]').removeClass('disabled');
-						$('[data-update-addon-id="' + addon_id + '"]').removeClass('disabled');
+						reset_buttons();
 						default_error_callback(xhr, ajaxOptions, thrownError);
 					}
 				);
@@ -367,9 +361,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					
 					var disabled = ((addon.available_version && addon.download_url) ? '' : 'disabled');
 					var bupdate = $('<div class="ui '+ color +' basic '+ disabled +' button" id="button-update-' + addon.id + '">')
-						.attr('data-update-addon-id', addon.id)
-						.attr('data-update-addon-available-version', addon.available_version)
 						.append($('<i class="sign in icon">'), (addon.version == addon.available_version) ? i18next.t('reinstall') : i18next.t('update'));
+					if (!disabled) {
+						bupdate.attr('data-update-addon-id', addon.id).attr('data-update-addon-available-version', addon.available_version)
+					}
 					bupdate.click(function() {
 						install_addon(this.getAttribute('data-update-addon-id'));
 					});
@@ -410,6 +405,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					));
 				});
 				$('#dimmer-addon-info').removeClass('active');
+				if (running_installation) {
+					// deactivate buttons
+					set_running_installation(running_installation);
+				}
 			});
 		}
 		
@@ -526,7 +525,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 			rest("GET", "/is_system_upgradeable", null, function(upgradeable) {
 				if (!upgradeable) {
-					display_message('error', i18next.t('system_not_upgradeable'), 6000000);
+					display_message('error', i18next.t('system_not_upgradeable'), 10000);
 				}
 			});
 			get_system_info();
@@ -536,12 +535,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	</script>
 </head>
 <body>
+	<div style="position: fixed; left: 50%; top: 2vh; z-index: 2000">
+		<div style="position: relative; left: -50%;">
+			<div class="ui container">
+				<div id="message" class="ui message hidden" style="min-height: 50px; min-width: 340px">
+					<i class="close icon" onclick="clear_message();"></i>
+				</div>
+			</div>
+		</div>
+	</div>
+	
 	<div style="padding-top: 5vw; padding-bottom: 5vw" class="ui container">
 		<h1 class="ui center aligned dividing header" data-i18n="title"></h1>
-		
-		<div id="message" class="ui message hidden">
-		</div>
-		
+	
 		<h2 class="ui header">
 			<i class="info icon"></i>
 			<div data-i18n="system_info" class="content">
@@ -643,12 +649,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			<div class="bar"></div>
 		</div>
 		<div class="content">
-			<div id="message-log" class="ui message hidden">
-			</div>
-			<div class="content">
-				<pre style="height:25vh; overflow-x:hidden; overflow-y:auto; white-space: pre-wrap;" id="log-content">
-				</pre>
-			</div>
+			<pre style="height:40vh; overflow-x:hidden; overflow-y:auto; white-space: pre-wrap;" id="log-content">
+			</pre>
 		</div>
 	</div>
 	
