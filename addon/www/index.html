@@ -412,6 +412,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
+		function wlan_scan() {
+			rest("GET", "/wlan_scan", null, function(data) {
+				$('#wlan-list tbody').empty();
+				data.forEach(function(wlan) {
+					var bconnect = $('<div class="ui green basic button disabled">')
+						.attr('data-connect-ssid', wlan.ssid)
+						.append($('<i class="sign in icon">'), i18next.t('connect'));
+					$("#wlan-list tbody").append($('<tr>').append(
+						$('<td>').append($('<label>' + wlan.ssid + '</label>')),
+						$('<td>').append($('<label>' + wlan.signal + '</label>')),
+						$('<td class="center aligned">').append(bconnect)
+					));
+				});
+				setTimeout(function(){ wlan_scan(); }, 5000);
+			});
+		}
+		
 		$(document).ready(function() {
 			i18next.init({
 				lng: language,
@@ -460,6 +477,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							install_addon_from_url: 'Install addon from url',
 							install_addon_from_file: 'Install addon from file',
 							choose_addon_file: 'Choose and install addon-file',
+							wlan: "WLAN",
+							wlan_ssid: "SSID",
+							wlan_signal: "Signal",
+							connect: "Connect",
 						}
 					},
 					de: {
@@ -505,6 +526,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							install_addon_from_url: 'Addon von URL installieren',
 							install_addon_from_file: 'Addon aus Datei installieren',
 							choose_addon_file: 'Addon-Datei auswählen und installieren',
+							wlan: "WLAN",
+							wlan_ssid: "SSID",
+							wlan_signal: "Signal",
+							connect: "Verbinden",
 						}
 					}
 				}
@@ -531,6 +556,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			get_system_info();
 			get_firmware_info();
 			get_addon_info();
+			wlan_scan();
 		});
 	</script>
 </head>
@@ -638,6 +664,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				<i class="ui file archive outline icon"></i>
 				choose_addon_file
 			</label>
+		</div>
+		
+		<h2 class="ui header">
+			<i class="wifi icon"></i>
+			<div data-i18n="wlan" class="content">
+			</div>
+		</h2>
+		<div>
+			<table id="wlan-list" class="ui celled stackable table">
+				<thead>
+					<tr>
+						<th data-i18n="wlan_ssid"></th>
+						<th data-i18n="wlan_signal"></th>
+						<th class="center aligned" data-i18n="action"></th>
+					</tr>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
 		</div>
 	</div>
 	

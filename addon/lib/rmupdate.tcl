@@ -49,6 +49,35 @@ proc json_string {str} {
 	return "[string map $replace_map $str]"
 }
 
+proc array_to_json {a} {
+	array set arr $a
+	set json "\["
+	set keys [array names arr]
+	set keys [lsort $keys]
+	set cur_id ""
+	foreach key $keys {
+		set tmp [split $key "::"]
+		set id [lindex $tmp 0]
+		set opt [lindex $tmp 2]
+		if {$cur_id != $id} {
+			if {$cur_id != ""} {
+				set json [string range $json 0 end-1]
+				append json "\},"
+			}
+			append json "\{"
+			set cur_id $id
+		}
+		set val [json_string $arr($key)]
+		append json "\"${opt}\":\"${val}\","
+	}
+	if {$cur_id != ""} {
+		set json [string range $json 0 end-1]
+		append json "\}"
+	}
+	append json "\]"
+	return $json
+}
+
 proc ::rmupdate::i18n {str} {
 	variable language
 	if {$language == "de"} {
@@ -897,31 +926,7 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 	}
 	
 	if {$as_json == 1} {
-		set json "\["
-		set keys [array names addons]
-		set keys [lsort $keys]
-		set cur_addon_id ""
-		foreach key $keys {
-			set tmp [split $key "::"]
-			set addon_id [lindex $tmp 0]
-			set opt [lindex $tmp 2]
-			if {$cur_addon_id != $addon_id} {
-				if {$cur_addon_id != ""} {
-					set json [string range $json 0 end-1]
-					append json "\},"
-				}
-				append json "\{"
-				set cur_addon_id $addon_id
-			}
-			set val [json_string $addons($key)]
-			append json "\"${opt}\":\"${val}\","
-		}
-		if {$cur_addon_id != ""} {
-			set json [string range $json 0 end-1]
-			append json "\}"
-		}
-		append json "\]"
-		return $json
+		return [array_to_json [array get addons]]
 	} else {
 		return [array get addons]
 	}
@@ -1021,6 +1026,40 @@ proc ::rmupdate::install_addon {{addon_id ""} {download_url ""}} {
 	return [format [i18n "Addon %s successfully installed."] $addon_id]
 }
 
+
+proc ::rmupdate::wlan_scan {{as_json 0} {device "wlan0"}} {
+	array set ssids {}
+	set data [exec /usr/sbin/iw $device scan]
+	set cur_ssid ""
+	set cur_signal ""
+	foreach d [split $data "\n"] {
+		if { [regexp {^\s*SSID:\s*(\S.*)\s*$} $d match ssid] } {
+			set cur_ssid $ssid
+		}
+		if { [regexp {^\s*signal:\s*(\S.*)\s*$} $d match signal] } {
+			set cur_signal $signal
+		}
+		if { [regexp {^BSS\s([a-fA-F0-9\:]+)} $d match bss] } {
+			if {$cur_ssid != "" && $cur_signal != ""} {
+				set ssids(${cur_ssid}::ssid) $cur_ssid
+				set ssids(${cur_ssid}::signal) $cur_signal
+				set cur_ssid ""
+				set cur_signal ""
+			}
+		}
+	}
+	if {$cur_ssid != "" && $cur_signal != ""} {
+		set ssids(${cur_ssid}::ssid) $cur_ssid
+		set ssids(${cur_ssid}::signal) $cur_signal
+	}
+	
+	if {$as_json == 1} {
+		return [array_to_json [array get ssids]]
+	} else {
+		return [array get ssids]
+	}
+}
+
 #puts [rmupdate::get_latest_firmware_version]
 #puts [rmupdate::get_firmware_info]
 #puts [rmupdate::get_available_firmware_images]
@@ -1037,4 +1076,4 @@ proc ::rmupdate::install_addon {{addon_id ""} {download_url ""}} {
 #puts [rmupdate::get_rpi_version]
 #puts [rmupdate::get_part_uuid "/dev/mmcblk0p3"]
 #puts [rmupdate::get_addon_info 1 1]
-
+#puts [rmupdate::wlan_scan 1]

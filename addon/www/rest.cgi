@@ -17,6 +17,10 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#lappend auto_path /www
+#set env(TCLLIBPATH) [list /www /usr/local/addons/rmupdate/lib]
+#source once.tcl
+#source session.tcl
 source /usr/local/addons/rmupdate/lib/rmupdate.tcl
 
 proc process {} {
@@ -115,6 +119,8 @@ proc process {} {
 		} elseif {[lindex $path 1] == "read_install_log"} {
 			variable content_type "text/html"
 			return [rmupdate::read_install_log]
+		} elseif {[lindex $path 1] == "wlan_scan"} {
+			return [rmupdate::wlan_scan 1]
 		}
 	}
 	error "invalid request" "Not found" 404
