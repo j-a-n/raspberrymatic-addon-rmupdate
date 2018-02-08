@@ -121,6 +121,13 @@ proc process {} {
 			return [rmupdate::read_install_log]
 		} elseif {[lindex $path 1] == "wlan_scan"} {
 			return [rmupdate::wlan_scan 1]
+		} elseif {[lindex $path 1] == "wlan_connect"} {
+			regexp {\"ssid\"\s*:\s*\"([^\"]+)\"} $data match ssid
+			set password ""
+			regexp {\"password\"\s*:\s*\"([^\"]+)\"} $data match password
+			return [rmupdate::wlan_connect $ssid $password]
+		} elseif {[lindex $path 1] == "wlan_disconnect"} {
+			return [rmupdate::wlan_disconnect]
 		}
 	}
 	error "invalid request" "Not found" 404

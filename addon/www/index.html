@@ -37,6 +37,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		var running_installation = "";
 		var current_firmware = '?';
 		var latest_firmware = '?';
+		var wlanScanTimer;
 		
 		function display_message(type, text, millis) {
 			clear_message();
@@ -416,16 +417,38 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			rest("GET", "/wlan_scan", null, function(data) {
 				$('#wlan-list tbody').empty();
 				data.forEach(function(wlan) {
-					var bconnect = $('<div class="ui green basic button disabled">')
-						.attr('data-connect-ssid', wlan.ssid)
+					var cls = (wlan.connected == "1") ? "disabled" : "";
+					var bconnect = $('<div class="ui green basic button ' + cls + '">')
+						.attr('data-ssid', wlan.ssid)
 						.append($('<i class="sign in icon">'), i18next.t('connect'));
-					$("#wlan-list tbody").append($('<tr>').append(
+					bconnect.click(function() {
+						$('#form-connect-wlan').form('clear');
+						$('#form-connect-wlan').attr('data-ssid', this.getAttribute('data-ssid'));
+						$('#modal-connect-wlan').modal('show');
+					});
+					
+					cls = (wlan.connected == "1") ? "" : "disabled";
+					var bdisconnect = $('<div class="ui orange basic button ' + cls + '">')
+						.attr('data-ssid', wlan.ssid)
+						.append($('<i class="delete icon">'), i18next.t('disconnect'));
+					bdisconnect.click(function() {
+						$('.button[data-ssid]').addClass('loading');
+						rest("POST", "/wlan_disconnect");
+					});
+					var connected_checked = ((wlan.connected == "1") ? 'checked=""' : '')
+					cls = (wlan.connected == "1") ? "positive" : "";
+					$("#wlan-list tbody").append($('<tr class="' + cls + '">').append(
 						$('<td>').append($('<label>' + wlan.ssid + '</label>')),
+						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" ' + connected_checked + '>'),$('<label></label>'))),
 						$('<td>').append($('<label>' + wlan.signal + '</label>')),
-						$('<td class="center aligned">').append(bconnect)
+						$('<td class="center aligned">').append(bconnect, bdisconnect)
 					));
 				});
-				setTimeout(function(){ wlan_scan(); }, 5000);
+				wlanScanTimer = setTimeout(function(){ wlan_scan(); }, 5000);
+			},
+			function(xhr, ajaxOptions, thrownError) {
+				clearTimeout(myVar);
+				wlanScanTimer = setTimeout(function(){ wlan_scan(); }, 5000);
 			});
 		}
 		
@@ -480,7 +503,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							wlan: "WLAN",
 							wlan_ssid: "SSID",
 							wlan_signal: "Signal",
+							wlan_connected: "Connected",
+							connect_to_wlan: "Connect with wifi",
+							password: "Password",
 							connect: "Connect",
+							disconnect: "Disconnect",
 						}
 					},
 					de: {
@@ -529,7 +556,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							wlan: "WLAN",
 							wlan_ssid: "SSID",
 							wlan_signal: "Signal",
+							wlan_connected: "Verbunden",
+							connect_to_wlan: "Mit WLAN verbinden",
+							password: "Passwort",
 							connect: "Verbinden",
+							disconnect: "Trennen",
 						}
 					}
 				}
@@ -544,6 +575,27 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$('#install-addon-url-button').contents().last()[0].textContent = i18next.t('install');
 				$('#install-addon-file-button').contents().last()[0].textContent = i18next.t('choose_addon_file');
 			});
+			var form_config = {
+				on: 'blur',
+				fields: {
+					password: {
+						identifier: 'password'
+					}
+				},
+				onSuccess: function(event, fields) {
+					if (wlanScanTimer) {
+						clearTimeout(wlanScanTimer);
+					}
+					wlanScanTimer = setTimeout(function(){ wlan_scan(); }, 10000);
+					$(event.currentTarget).closest("div.modal").modal('hide');
+					var ssid = $('#form-connect-wlan').attr('data-ssid');
+					var password = $(event.currentTarget).form('get value', 'password');
+					$('.button[data-ssid]').addClass('loading');
+					rest("POST", "/wlan_connect", JSON.stringify({"ssid": ssid, "password": password}));
+					event.preventDefault();
+				}
+			};
+			$('#form-connect-wlan').form(form_config);
 			
 			rest("GET", "/version", null, function(version) {
 				document.title = document.title + " " + version;
@@ -676,6 +728,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				<thead>
 					<tr>
 						<th data-i18n="wlan_ssid"></th>
+						<th data-i18n="wlan_connected"></th>
 						<th data-i18n="wlan_signal"></th>
 						<th class="center aligned" data-i18n="action"></th>
 					</tr>
@@ -709,6 +762,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			</div>
 			<div data-i18n="uninstall" class="ui red approve inverted button">
 			</div>
+		</div>
+	</div>
+	
+	<div id="modal-connect-wlan" class="ui modal">
+		<i class="close icon"></i>
+		<div class="header" data-i18n="connect_to_wlan">
+		</div>
+		<div class="content">
+			<form id="form-connect-wlan" class="ui form">
+				<div class="field">
+					<label data-i18n="password"></label>
+					<input type="password" name="password">
+				</div>
+				<div class="ui error message"></div>
+				<div class="ui button" onclick="$('#modal-connect-wlan').modal('hide');" data-i18n="cancel"></div>
+				<div id="submit-connect-wlan" class="ui primary submit button" data-i18n="connect"></div>
+			</form>
 		</div>
 	</div>
 	

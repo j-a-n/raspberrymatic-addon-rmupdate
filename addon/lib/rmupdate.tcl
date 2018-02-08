@@ -1032,6 +1032,7 @@ proc ::rmupdate::wlan_scan {{as_json 0} {device "wlan0"}} {
 	set data [exec /usr/sbin/iw $device scan]
 	set cur_ssid ""
 	set cur_signal ""
+	set cur_connected 0
 	foreach d [split $data "\n"] {
 		if { [regexp {^\s*SSID:\s*(\S.*)\s*$} $d match ssid] } {
 			set cur_ssid $ssid
@@ -1043,8 +1044,13 @@ proc ::rmupdate::wlan_scan {{as_json 0} {device "wlan0"}} {
 			if {$cur_ssid != "" && $cur_signal != ""} {
 				set ssids(${cur_ssid}::ssid) $cur_ssid
 				set ssids(${cur_ssid}::signal) $cur_signal
+				set ssids(${cur_ssid}::connected) $cur_connected
 				set cur_ssid ""
 				set cur_signal ""
+				set cur_connected 0
+			}
+			if { [regexp {associated} $d match] } {
+				set cur_connected 1
 			}
 		}
 	}
@@ -1058,6 +1064,48 @@ proc ::rmupdate::wlan_scan {{as_json 0} {device "wlan0"}} {
 	} else {
 		return [array get ssids]
 	}
+}
+
+proc ::rmupdate::wlan_connect {ssid {password ""}} {
+	set psk ""
+	if {$password != ""} {
+		set data [exec /usr/sbin/wpa_passphrase $ssid $password]
+		foreach d [split $data "\n"] {
+			if { [regexp {^\s*psk\s*=\s*(\S+)\s*$} $d match p] } {
+				set psk $p
+			}
+		}
+	}
+	set fd [open /etc/config/wpa_supplicant.conf "w"]
+	puts $fd "ctrl_interface=/var/run/wpa_supplicant"
+	puts $fd "ap_scan=1"
+	puts $fd "network=\{"
+	puts $fd "  ssid=\"${ssid}\""
+	puts $fd "  scan_ssid=1"
+	if {$psk == ""} {
+		puts $fd "  key_mgmt=NONE"
+	} else {
+		puts $fd "  proto=WPA RSN"
+		puts $fd "  key_mgmt=WPA-PSK"
+		puts $fd "  pairwise=CCMP TKIP"
+		puts $fd "  group=CCMP TKIP"
+		puts $fd "  psk=${psk}"
+	}
+	puts $fd "\}"
+	close $fd
+	
+	catch { exec /sbin/ifdown wlan0 }
+	catch { exec /sbin/ifup wlan0 }
+}
+
+proc ::rmupdate::wlan_disconnect {} {
+	set fd [open /etc/config/wpa_supplicant.conf "w"]
+	puts $fd "ctrl_interface=/var/run/wpa_supplicant"
+	puts $fd "ap_scan=1"
+	close $fd
+	
+	catch { exec /sbin/ifdown wlan0 }
+	catch { exec /sbin/ifup wlan0 }
 }
 
 #puts [rmupdate::get_latest_firmware_version]
@@ -1077,3 +1125,4 @@ proc ::rmupdate::wlan_scan {{as_json 0} {device "wlan0"}} {
 #puts [rmupdate::get_part_uuid "/dev/mmcblk0p3"]
 #puts [rmupdate::get_addon_info 1 1]
 #puts [rmupdate::wlan_scan 1]
+#rmupdate::wlan_connect xxx yyyyy
