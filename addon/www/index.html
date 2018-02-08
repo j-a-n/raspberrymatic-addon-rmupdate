@@ -463,6 +463,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							system_info: 'System information',
 							current_root_partiton: 'Current root partition: {{root_partition}}',
 							system_type: 'System type: {{system_type}}',
+							reboot_system: 'Reboot system',
+							shutdown_system: 'Shutdown system',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Current installed version',
 							latest_available_version: 'Latest available version',
@@ -516,6 +518,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							system_info: 'System-Informationen',
 							current_root_partiton: 'Aktuelle Root-Partition: {{root_partition}}',
 							system_type: 'System-Typ: {{system_type}}',
+							reboot_system: 'System neu starten',
+							shutdown_system: 'System herunterfahren',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Momentan installierte Version',
 							latest_available_version: 'Aktuellste verfügbare Version',
@@ -633,6 +637,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		</h2>
 		<div class="ui list" id="system-info">
 		</div>
+		<div class="ui orange basic button" data-i18n="reboot_system" onclick="rest('POST', '/system_reboot');"></div>
+		<div class="ui red basic button" data-i18n="shutdown_system" onclick="rest('POST', '/system_shutdown');"></div>
 		
 		<h2 class="ui header">
 			<i class="settings icon"></i>
