@@ -447,7 +447,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				wlanScanTimer = setTimeout(function(){ wlan_scan(); }, 5000);
 			},
 			function(xhr, ajaxOptions, thrownError) {
-				clearTimeout(myVar);
 				wlanScanTimer = setTimeout(function(){ wlan_scan(); }, 5000);
 			});
 		}
