@@ -83,6 +83,36 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
+		function show_reboot_dialog() {
+			$('#modal-reboot').modal({
+				onDeny: function(){
+					return true;
+				},
+				onApprove: function() {
+					rest('POST', '/system_reboot', null, function(data) {
+						display_message('success', i18next.t('system_is_rebooting'), 120000);
+					});
+					return true;
+				}
+			})
+			.modal('show');
+		}
+		
+		function show_shutdown_dialog() {
+			$('#modal-shutdown').modal({
+				onDeny: function(){
+					return true;
+				},
+				onApprove: function() {
+					rest('POST', '/system_shutdown', null, function(data) {
+						display_message('success', i18next.t('system_is_shutting_down'), 120000);
+					});
+					return true;
+				}
+			})
+			.modal('show');
+		}
+		
 		function disable_buttons() {
 			$('[data-install-firmware-version]').addClass('disabled');
 			$('[data-delete-firmware-version]').addClass('disabled');
@@ -464,6 +494,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							system_type: 'System type: {{system_type}}',
 							reboot_system: 'Reboot system',
 							shutdown_system: 'Shutdown system',
+							reboot: 'Reboot',
+							shutdown: 'Shutdown',
+							sure_to_reboot_system: 'Are you sure you want to reboot the system now?',
+							sure_to_shutdown_system: 'Are you sure you want to shutdown the system now?',
+							system_is_rebooting: 'System is going down for reboot now.',
+							system_is_shutting_down: 'System is going down for shutdown now.',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Current installed version',
 							latest_available_version: 'Latest available version',
@@ -519,6 +555,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							system_type: 'System-Typ: {{system_type}}',
 							reboot_system: 'System neu starten',
 							shutdown_system: 'System herunterfahren',
+							reboot: 'Neu starten',
+							shutdown: 'Herunterfahren',
+							sure_to_reboot_system: 'Soll das System jetzt neu gestartet werden?',
+							sure_to_shutdown_system: 'Soll das System jetzt heruntergefahren werden?',
+							system_is_rebooting: 'Das System wird neu gestartet.',
+							system_is_shutting_down: 'Das System wird heruntergefahren.',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Momentan installierte Version',
 							latest_available_version: 'Aktuellste verfügbare Version',
@@ -636,8 +678,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		</h2>
 		<div class="ui list" id="system-info">
 		</div>
-		<div class="ui orange basic button" data-i18n="reboot_system" onclick="rest('POST', '/system_reboot');"></div>
-		<div class="ui red basic button" data-i18n="shutdown_system" onclick="rest('POST', '/system_shutdown');"></div>
+		<div class="ui orange basic button" data-i18n="reboot_system" onclick="show_reboot_dialog();"></div>
+		<div class="ui red basic button" data-i18n="shutdown_system" onclick="show_shutdown_dialog();"></div>
 		
 		<h2 class="ui header">
 			<i class="settings icon"></i>
@@ -766,6 +808,32 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			<div data-i18n="cancel" class="ui gray basic cancel inverted button">
 			</div>
 			<div data-i18n="uninstall" class="ui red approve inverted button">
+			</div>
+		</div>
+	</div>
+	
+	<div id="modal-reboot" class="ui small basic modal transition scrolling">
+		<div data-i18n="reboot_system" class="header"></div>
+		<div class="content">
+			<p data-i18n="sure_to_reboot_system"></p>
+		</div>
+		<div class="actions">
+			<div data-i18n="cancel" class="ui gray basic cancel inverted button">
+			</div>
+			<div data-i18n="reboot" class="ui red approve inverted button">
+			</div>
+		</div>
+	</div>
+	
+	<div id="modal-shutdown" class="ui small basic modal transition scrolling">
+		<div data-i18n="shutdown_system" class="header"></div>
+		<div class="content">
+			<p data-i18n="sure_to_shutdown_system"></p>
+		</div>
+		<div class="actions">
+			<div data-i18n="cancel" class="ui gray basic cancel inverted button">
+			</div>
+			<div data-i18n="shutdown" class="ui red approve inverted button">
 			</div>
 		</div>
 	</div>

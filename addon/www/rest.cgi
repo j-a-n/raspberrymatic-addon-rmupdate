@@ -60,7 +60,7 @@ proc process {} {
 			exec /sbin/reboot
 			return "\"reboot initiated\""
 		} elseif {[lindex $path 1] == "system_shutdown"} {
-			exec /sbin/shutdown
+			exec /sbin/poweroff
 			return "\"shutdown initiated\""
 		} elseif {[lindex $path 1] == "get_addon_info"} {
 			return [rmupdate::get_addon_info 1 1 1]
