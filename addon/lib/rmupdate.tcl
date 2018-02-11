@@ -1002,7 +1002,7 @@ proc ::rmupdate::install_addon {{addon_id ""} {download_url ""}} {
 	write_log 3 "Running update_script"
 	file attributes update_script -permissions 0755
 	if { [catch {
-		exec ./update_script noreboot
+		exec ./update_script HM-RASPBERRYMATIC
 	} errormsg] } {
 		write_log 2 "Addon update_script failed: ${errormsg}"
 	}
