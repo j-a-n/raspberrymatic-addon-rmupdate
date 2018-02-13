@@ -1,8 +1,10 @@
 # RaspberryMatic addon to (auto-)update system
 This addon can be used to easily up- and downgrade the RaspberryMatic system.
 
+![Screenshot](./_doc/rmupdate-screenshot.png)
+
 ## Prerequisites
-* Adjusted RaspMatic image with two root partitions
+* System update feature needs an adjusted RaspMatic image with two root partitions
 
 ## Installation
 * Download adjusted RaspberryMatic image:
