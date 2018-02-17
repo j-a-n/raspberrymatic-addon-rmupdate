@@ -248,6 +248,13 @@ proc ::rmupdate::version {} {
 	return [string trim $data]
 }
 
+proc ::rmupdate::get_partition_device {device partition} {
+	if { [regexp {mmcblk} $device match] } {
+		return "${device}p${partition}"
+	}
+	return "${device}${partition}"
+}
+
 proc ::rmupdate::get_partion_start_and_size {device partition} {
 	set data [exec /usr/sbin/parted $device unit B print]
 	foreach d [split $data "\n"] {
@@ -261,16 +268,19 @@ proc ::rmupdate::get_partion_start_and_size {device partition} {
 
 proc ::rmupdate::is_system_upgradeable {} {
 	variable sys_dev
-	#if { [get_filesystem_label "${sys_dev}p2"] != "rootfs1" } {
+	#if { [get_filesystem_label $sys_dev 2] != "rootfs1" } {
 	#	return 0
 	#}
-	if { [get_filesystem_label "${sys_dev}p3"] != "rootfs2" } {
+	if { [get_filesystem_label $sys_dev 3] != "rootfs2" } {
 		return 0
 	}
 	return 1
 }
 
-proc ::rmupdate::get_part_uuid {device} {
+proc ::rmupdate::get_part_uuid {device {partition ""}} {
+	if {$partition != ""} {
+		set device [get_partition_device $device $partition]
+	}
 	foreach f [glob /dev/disk/by-partuuid/*] {
 		set d ""
 		catch {
@@ -283,7 +293,10 @@ proc ::rmupdate::get_part_uuid {device} {
 	error "Failed to get partition uuid of device ${device}."
 }
 
-proc ::rmupdate::get_filesystem_label {device} {
+proc ::rmupdate::get_filesystem_label {device {partition ""}} {
+	if {$partition != ""} {
+		set device [get_partition_device $device $partition]
+	}
 	set data [exec /sbin/blkid $device]
 	foreach d [split $data "\n"] {
 		regexp {LABEL="([^"]+)"} $d match lab
@@ -306,7 +319,29 @@ proc ::rmupdate::update_cmdline {cmdline root} {
 	close $fd
 }
 
-proc ::rmupdate::get_current_root_partition {} {
+proc ::rmupdate::get_system_device {} {
+	variable sys_dev
+	set cmdline "/proc/cmdline"
+	set fd [open $cmdline r]
+	set data [read $fd]
+	close $fd
+	foreach d [split $data "\n"] {
+		if { [regexp {root=PARTUUID=(\S+)} $d match partuuid] } {
+			set x [file readlink "/dev/disk/by-partuuid/${partuuid}"]
+			if { [regexp {(mmcblk.*)p\d} [file tail $x] match device] } {
+				set sys_dev "/dev/${device}"
+				return $sys_dev
+			}
+			else if { [regexp {(.*)\d} [file tail $x] match device] } {
+				set sys_dev "/dev/${device}"
+				return $sys_dev
+			}
+		}
+	}
+	return ""
+}
+
+proc ::rmupdate::get_current_root_partition_number {} {
 	set cmdline "/proc/cmdline"
 	set fd [open $cmdline r]
 	set data [read $fd]
@@ -365,15 +400,15 @@ proc ::rmupdate::mount_image_partition {image partition mountpoint} {
 proc ::rmupdate::mount_system_partition {partition mountpoint} {
 	variable sys_dev
 	set remount 1
-	set root_partition [get_current_root_partition]
+	set root_partition_number [get_current_root_partition_number]
 	
 	if {$partition == 1} {
 		set partition "/boot"
 	} elseif {$partition == 2 || $partition == 3} {
-		if {$partition == $root_partition} {
+		if {$partition == $root_partition_number} {
 			set partition "/"
 		} else {
-			set partition "${sys_dev}p${partition}"
+			set partition [get_partition_device $sys_dev $partition]
 			set remount 0
 		}
 	} elseif {$partition == 4} {
@@ -459,7 +494,7 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 	variable mnt_sys
 	variable sys_dev
 	
-	set root_partition [get_current_root_partition]
+	set root_partition_number [get_current_root_partition_number]
 	
 	write_install_log "Updating filesystems."
 	
@@ -469,7 +504,7 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 	foreach img_partition [list 2 1] {
 		set sys_partition $img_partition
 		set mnt_s $mnt_sys
-		if {$img_partition == 2 && $root_partition == 2} {
+		if {$img_partition == 2 && $root_partition_number == 2} {
 			set sys_partition 3
 		}
 		if {$sys_partition == 1} {
@@ -511,11 +546,11 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 		if {$img_partition == 1} {
 			write_install_log "Updating boot configuration."
 			if {!$dryrun} {
-				set new_root_partition 2
-				if {$root_partition == 2} {
-					set new_root_partition 3
+				set new_root_partition_number 2
+				if {$root_partition_number == 2} {
+					set new_root_partition_number 3
 				}
-				set part_uuid [get_part_uuid "${sys_dev}p${new_root_partition}"]
+				set part_uuid [get_part_uuid $sys_dev $new_root_partition_number]
 				if { [get_rpi_version] == "tinkerboard" } {
 					update_cmdline "${mnt_s}/extlinux/extlinux.conf" "PARTUUID=${part_uuid}"
 				} else {
@@ -766,6 +801,7 @@ proc ::rmupdate::install_firmware_version {version lang {reboot 1} {dryrun 0}} {
 		set firmware_image [download_firmware $version]
 	}
 	
+	get_system_device
 	check_sizes $firmware_image
 	update_filesystems $firmware_image $dryrun
 	
@@ -1123,6 +1159,9 @@ proc ::rmupdate::wlan_disconnect {} {
 #rmupdate::umount $rmupdate::mnt_sys
 #puts [rmupdate::get_rpi_version]
 #puts [rmupdate::get_part_uuid "/dev/mmcblk0p3"]
+#puts [rmupdate::get_part_uuid "/dev/mmcblk0" 3]
 #puts [rmupdate::get_addon_info 1 1]
 #puts [rmupdate::wlan_scan 1]
 #rmupdate::wlan_connect xxx yyyyy
+#puts [rmupdate::get_system_device]
+#puts $rmupdate::sys_dev

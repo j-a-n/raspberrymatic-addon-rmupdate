@@ -54,7 +54,7 @@ proc process {} {
 			return [rmupdate::get_firmware_info]
 		} elseif {[lindex $path 1] == "get_system_info"} {
 			set system_type [rmupdate::get_rpi_version]
-			set root_partition [rmupdate::get_current_root_partition]
+			set root_partition [rmupdate::get_current_root_partition_number]
 			return "\{\"system_type\":\"${system_type}\",\"root_partition\":${root_partition}\}"
 		} elseif {[lindex $path 1] == "system_reboot"} {
 			exec /sbin/reboot
