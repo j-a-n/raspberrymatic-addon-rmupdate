@@ -255,12 +255,12 @@ proc ::rmupdate::get_partition_device {device partition} {
 	return "${device}${partition}"
 }
 
-proc ::rmupdate::get_partion_start_and_size {device partition} {
+proc ::rmupdate::get_partion_start_end_and_size {device partition} {
 	set data [exec /usr/sbin/parted $device unit B print]
 	foreach d [split $data "\n"] {
 		regexp {^\s*(\d)\s+(\d+)B\s+(\d+)B\s+(\d+)B.*} $d match num start end size
 		if { [info exists num] && $num == $partition } {
-			return [list $start $size]
+			return [list $start $end $size]
 		}
 	}
 	error "Failed to get partition start and size of device ${device}, partition ${partition}."
@@ -387,8 +387,8 @@ proc ::rmupdate::mount_image_partition {image partition mountpoint} {
 	
 	write_log 3 "Mounting parition ${partition} of image ${image}."
 
-	set p [get_partion_start_and_size $image $partition]
-	write_log 4 "Partiton start=[lindex $p 0], size=[lindex $p 1]."
+	set p [get_partion_start_end_and_size $image $partition]
+	write_log 4 "Partiton start=[lindex $p 0], size=[lindex $p 2]."
 	
 	file mkdir $mountpoint
 	catch {exec /bin/umount "${mountpoint}"}
@@ -562,6 +562,124 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 		umount $mnt_img
 		umount $mnt_s
 	}
+}
+
+proc ::rmupdate::clone_system {target_device} {
+	variable mnt_sys
+	
+	set source_device [get_system_device]
+	if { $source_device == $target_device} {
+		error [i18n "Source and target are the same device."]
+	}
+	
+	catch { exec /usr/bin/killall udevd}
+	catch { exec /sbin/udevd -d}
+	
+	catch { exec /bin/umount [get_partition_device $target_device 1] }
+	catch { exec /bin/umount [get_partition_device $target_device 2] }
+	catch { exec /bin/umount [get_partition_device $target_device 3] }
+	catch { exec /bin/umount [get_partition_device $target_device 4] }
+	
+	set data [exec /bin/mount]
+	foreach d [split $data "\n"] {
+		if {[regexp {$target_device} $d match]} {
+			error [i18n "Target is mounted."]
+		}
+	}
+	
+	set p [get_partion_start_end_and_size $source_device 1]
+	set start1 [lindex $p 0]
+	set end1 [lindex $p 1]
+	set p [get_partion_start_end_and_size $source_device 2]
+	set start2 [lindex $p 0]
+	set end2 [lindex $p 1]
+	set p [get_partion_start_end_and_size $source_device 3]
+	set start3 [lindex $p 0]
+	set end3 [lindex $p 1]
+	set p [get_partion_start_end_and_size $source_device 4]
+	set start4 [lindex $p 0]
+	
+	set exitcode [catch {
+		exec /usr/sbin/parted --script ${target_device} \
+		mklabel msdos \
+		mkpart primary fat32 ${start1}B ${end1}B \
+		set 1 boot on \
+		mkpart primary ext4 ${start2}B ${end2}B \
+		mkpart primary ext4 ${start3}B ${end3}B \
+		mkpart primary ext4 ${start4}B 100%
+	} output]
+	if { $exitcode != 0 && $exitcode != 1 } {
+		error $output
+	}
+	
+	set exitcode [catch { exec /sbin/mkfs.vfat -F32 -n bootfs [get_partition_device $target_device 1] } output]
+	if { $exitcode != 0} {
+		error $output
+	}
+	set exitcode [catch { exec /sbin/mkfs.ext4 -F -L rootfs1 [get_partition_device $target_device 2] } output]
+	if { $exitcode != 0 && $exitcode != 1 } {
+		error $output
+	}
+	set exitcode [catch { exec /sbin/mkfs.ext4 -F -L rootfs2 [get_partition_device $target_device 3] } output]
+		if { $exitcode != 0 && $exitcode != 1 } {
+		error $output
+	}
+	set exitcode [catch { exec /sbin/mkfs.ext4 -F -L userfs [get_partition_device $target_device 4] } output]
+	if { $exitcode != 0 && $exitcode != 1 } {
+		error $output
+	}
+	
+	set source_uuid [get_part_uuid $source_device 2]
+	set target_uuid [get_part_uuid $target_device 2]
+	
+	catch { exec /usr/bin/killall udevd}
+	catch { exec /bin/umount [get_partition_device $target_device 1] }
+	catch { exec /bin/umount [get_partition_device $target_device 2] }
+	catch { exec /bin/umount [get_partition_device $target_device 3] }
+	catch { exec /bin/umount [get_partition_device $target_device 4] }
+	
+	file mkdir $mnt_sys
+	
+	exec /bin/mount [get_partition_device $target_device 1] $mnt_sys
+	set shell_script "cd /boot; tar -c . | (cd $mnt_sys; tar -xv)"
+	set exitcode [catch { exec /bin/sh -c $shell_script } output]
+	if { $exitcode == 0} {
+		update_cmdline "${mnt_sys}/cmdline.txt" "PARTUUID=${target_uuid}"
+	}
+	exec /bin/umount $mnt_sys
+	if { $exitcode != 0 && $exitcode != 1 } {
+		error $output
+	}
+	
+	exec /bin/mount [get_partition_device $target_device 2] $mnt_sys
+	set shell_script "cd /; tar -c --exclude=boot/* --exclude=usr/local/* --exclude=tmp/* --exclude=proc/* --exclude=sys/* --exclude=run/* . | (cd $mnt_sys; tar -xv)"
+	set exitcode [catch { exec /bin/sh -c $shell_script } output]
+	exec /bin/umount $mnt_sys
+	if { $exitcode != 0 && $exitcode != 1 } {
+		error "$output $exitcode"
+	}
+	
+	exec /bin/mount [get_partition_device $target_device 3] $mnt_sys
+	set shell_script "cd /; tar -c --exclude=boot/* --exclude=usr/local/* --exclude=tmp/* --exclude=proc/* --exclude=sys/* --exclude=run/* . | (cd $mnt_sys; tar -xv)"
+	set exitcode [catch { exec /bin/sh -c $shell_script } output]
+	exec /bin/umount $mnt_sys
+	if { $exitcode != 0 && $exitcode != 1 } {
+		error "$output $exitcode"
+	}
+	
+	# Write ReGaHSS state to disk
+	load tclrega.so
+	rega system.Save()
+	
+	exec /bin/mount [get_partition_device $target_device 4] $mnt_sys
+	set shell_script "cd /usr/local; tar -c . | (cd $mnt_sys; tar -xv)"
+	set exitcode [catch { exec /bin/sh -c $shell_script } output]
+	exec /bin/umount $mnt_sys
+	if { $exitcode != 0 && $exitcode != 1 } {
+		error $output
+	}
+	
+	exec /sbin/udevd -d
 }
 
 proc ::rmupdate::get_current_firmware_version {} {
@@ -1152,7 +1270,7 @@ proc ::rmupdate::wlan_disconnect {} {
 #puts [rmupdate::is_firmware_up_to_date]
 #puts [rmupdate::get_latest_firmware_download_url]
 #rmupdate::check_sizes "/usr/local/addons/raspmatic-update/tmp/RaspberryMatic-2.27.7.20170316.img"
-#set res [rmupdate::get_partion_start_and_size "/dev/mmcblk0" 1]
+#set res [rmupdate::get_partion_start_end_and_size "/dev/mmcblk0" 1]
 #rmupdate::mount_image_partition "/usr/local/addons/raspmatic-update/tmp/RaspberryMatic-2.27.7.20170316.img" 1 $rmupdate::mnt_img
 #rmupdate::umount $rmupdate::mnt_img
 #rmupdate::mount_system_partition "/boot" $rmupdate::mnt_sys
