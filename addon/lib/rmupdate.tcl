@@ -24,7 +24,6 @@ namespace eval rmupdate {
 	variable img_dir "/usr/local/addons/rmupdate/var/img"
 	variable mnt_sys "/usr/local/addons/rmupdate/var/mnt_sys"
 	variable mnt_img "/usr/local/addons/rmupdate/var/mnt_img"
-	variable sys_dev "/dev/mmcblk0"
 	variable loop_dev "/dev/loop7"
 	variable install_log "/usr/local/addons/rmupdate/var/install.log"
 	variable install_lock "/usr/local/addons/rmupdate/var/install.lock"
@@ -267,7 +266,7 @@ proc ::rmupdate::get_partion_start_end_and_size {device partition} {
 }
 
 proc ::rmupdate::is_system_upgradeable {} {
-	variable sys_dev
+	set sys_dev [get_system_device]
 	#if { [get_filesystem_label $sys_dev 2] != "rootfs1" } {
 	#	return 0
 	#}
@@ -320,7 +319,6 @@ proc ::rmupdate::update_cmdline {cmdline root} {
 }
 
 proc ::rmupdate::get_system_device {} {
-	variable sys_dev
 	set cmdline "/proc/cmdline"
 	set fd [open $cmdline r]
 	set data [read $fd]
@@ -331,14 +329,13 @@ proc ::rmupdate::get_system_device {} {
 			if { [regexp {(mmcblk.*)p\d} [file tail $x] match device] } {
 				set sys_dev "/dev/${device}"
 				return $sys_dev
-			}
-			else if { [regexp {(.*)\d} [file tail $x] match device] } {
+			} elseif { [regexp {(.*)\d} [file tail $x] match device] } {
 				set sys_dev "/dev/${device}"
 				return $sys_dev
 			}
 		}
 	}
-	return ""
+	return "/dev/mmcblk0"
 }
 
 proc ::rmupdate::get_current_root_partition_number {} {
@@ -398,7 +395,7 @@ proc ::rmupdate::mount_image_partition {image partition mountpoint} {
 }
 
 proc ::rmupdate::mount_system_partition {partition mountpoint} {
-	variable sys_dev
+	set sys_dev [get_system_device]
 	set remount 1
 	set root_partition_number [get_current_root_partition_number]
 	
@@ -492,8 +489,8 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 	variable log_level
 	variable mnt_img
 	variable mnt_sys
-	variable sys_dev
 	
+	set sys_dev [get_system_device]
 	set root_partition_number [get_current_root_partition_number]
 	
 	write_install_log "Updating filesystems."
@@ -564,17 +561,25 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 	}
 }
 
-proc ::rmupdate::clone_system {target_device} {
+proc ::rmupdate::clone_system {target_device {activate_clone 0}} {
 	variable mnt_sys
+	
+	if {![file exists $target_device]} {
+		error [i18n "Target device does not exist."]
+	}
 	
 	set source_device [get_system_device]
 	if { $source_device == $target_device} {
 		error [i18n "Source and target are the same device."]
 	}
 	
-	catch { exec /usr/bin/killall udevd}
-	catch { exec /sbin/udevd -d}
 	
+	exec /bin/mount -o remount,rw /
+	exec /bin/sed -i s/ENABLED=1/ENABLED=0/ /etc/usbmount/usbmount.conf
+	exec /bin/mount -o remount,ro /
+	
+	file mkdir $mnt_sys
+	catch { exec /bin/umount $mnt_sys }
 	catch { exec /bin/umount [get_partition_device $target_device 1] }
 	catch { exec /bin/umount [get_partition_device $target_device 2] }
 	catch { exec /bin/umount [get_partition_device $target_device 3] }
@@ -632,18 +637,16 @@ proc ::rmupdate::clone_system {target_device} {
 	set source_uuid [get_part_uuid $source_device 2]
 	set target_uuid [get_part_uuid $target_device 2]
 	
-	catch { exec /usr/bin/killall udevd}
-	catch { exec /bin/umount [get_partition_device $target_device 1] }
-	catch { exec /bin/umount [get_partition_device $target_device 2] }
-	catch { exec /bin/umount [get_partition_device $target_device 3] }
-	catch { exec /bin/umount [get_partition_device $target_device 4] }
-	
-	file mkdir $mnt_sys
+	#catch { exec /bin/umount [get_partition_device $target_device 1] }
+	#catch { exec /bin/umount [get_partition_device $target_device 2] }
+	#catch { exec /bin/umount [get_partition_device $target_device 3] }
+	#catch { exec /bin/umount [get_partition_device $target_device 4] }
 	
 	exec /bin/mount [get_partition_device $target_device 1] $mnt_sys
 	set shell_script "cd /boot; tar -c . | (cd $mnt_sys; tar -xv)"
 	set exitcode [catch { exec /bin/sh -c $shell_script } output]
-	if { $exitcode == 0} {
+	if { $exitcode == 0 || $exitcode == 1 } {
+		# Update boot config for cloned system
 		update_cmdline "${mnt_sys}/cmdline.txt" "PARTUUID=${target_uuid}"
 	}
 	exec /bin/umount $mnt_sys
@@ -651,20 +654,15 @@ proc ::rmupdate::clone_system {target_device} {
 		error $output
 	}
 	
-	exec /bin/mount [get_partition_device $target_device 2] $mnt_sys
-	set shell_script "cd /; tar -c --exclude=boot/* --exclude=usr/local/* --exclude=tmp/* --exclude=proc/* --exclude=sys/* --exclude=run/* . | (cd $mnt_sys; tar -xv)"
-	set exitcode [catch { exec /bin/sh -c $shell_script } output]
-	exec /bin/umount $mnt_sys
-	if { $exitcode != 0 && $exitcode != 1 } {
-		error "$output $exitcode"
-	}
-	
-	exec /bin/mount [get_partition_device $target_device 3] $mnt_sys
-	set shell_script "cd /; tar -c --exclude=boot/* --exclude=usr/local/* --exclude=tmp/* --exclude=proc/* --exclude=sys/* --exclude=run/* . | (cd $mnt_sys; tar -xv)"
-	set exitcode [catch { exec /bin/sh -c $shell_script } output]
-	exec /bin/umount $mnt_sys
-	if { $exitcode != 0 && $exitcode != 1 } {
-		error "$output $exitcode"
+	for {set p 2} {$p <= 3} {incr p} {
+		exec /bin/mount [get_partition_device $target_device $p] $mnt_sys
+		set shell_script "cd /; tar -c --exclude=boot/* --exclude=usr/local/* --exclude=tmp/* --exclude=proc/* --exclude=sys/* --exclude=run/* . | (cd $mnt_sys; tar -xv)"
+		set exitcode [catch { exec /bin/sh -c $shell_script } output]
+		exec /bin/sed -i s/ENABLED=0/ENABLED=1/ ${mnt_sys}/etc/usbmount/usbmount.conf
+		exec /bin/umount $mnt_sys
+		if { $exitcode != 0 && $exitcode != 1 } {
+			error "$output $exitcode"
+		}
 	}
 	
 	# Write ReGaHSS state to disk
@@ -679,7 +677,32 @@ proc ::rmupdate::clone_system {target_device} {
 		error $output
 	}
 	
-	exec /sbin/udevd -d
+	if {$activate_clone == 1} {
+		# Relabel ext4 filesystems
+		catch { exec tune2fs -L 0rootfs1 [get_partition_device $source_device 2] }
+		catch { exec tune2fs -L 0rootfs2 [get_partition_device $source_device 3] }
+		catch { exec tune2fs -L 0userfs [get_partition_device $source_device 4] }
+		
+		# Recreate old boot fs with new label (util to relabel fat32 missing)
+		exec /bin/umount [get_partition_device $source_device 1]
+		exec /sbin/mkfs.vfat -n 0bootfs [get_partition_device $source_device 1]
+		exec /bin/mount [get_partition_device $source_device 1] /boot
+		
+		exec /bin/mount [get_partition_device $target_device 1] $mnt_sys
+		set shell_script "cd $mnt_sys; tar -c . | (cd /boot; tar -xv)"
+		set exitcode [catch { exec /bin/sh -c $shell_script } output]
+		exec /bin/umount $mnt_sys
+		if { $exitcode != 0 && $exitcode != 1 } {
+			error $output
+		}
+		
+		# Update boot config for cloned system
+		update_cmdline "/boot/cmdline.txt" "PARTUUID=${source_uuid}"
+	}
+	
+	exec /bin/mount -o remount,rw /
+	exec /bin/sed -i s/ENABLED=0/ENABLED=1/ /etc/usbmount/usbmount.conf
+	exec /bin/mount -o remount,ro /
 }
 
 proc ::rmupdate::get_current_firmware_version {} {
@@ -1283,3 +1306,4 @@ proc ::rmupdate::wlan_disconnect {} {
 #rmupdate::wlan_connect xxx yyyyy
 #puts [rmupdate::get_system_device]
 #puts $rmupdate::sys_dev
+#rmupdate::clone_system /dev/sda 1
