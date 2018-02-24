@@ -991,6 +991,7 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 			set addons(${id}::id) $id
 			set addons(${id}::name) ""
 			set addons(${id}::version) ""
+			set addons(${id}::available_version) ""
 			set addons(${id}::update) ""
 			set addons(${id}::config_url) ""
 			set addons(${id}::operations) ""
@@ -1023,7 +1024,7 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 			set tmp [split $key "::"]
 			set addon_id [lindex $tmp 0]
 			set opt [lindex $tmp 2]
-			if {$opt == "update" && $addons($key) != ""} {
+			if {$opt == "update" && $addons($key) != "" && $addons(${addon_id}::available_version) != ""} {
 				set available_version $addons(${addon_id}::available_version)
 				set url "http://localhost/$addons($key)?cmd=download&version=${available_version}"
 				catch {
