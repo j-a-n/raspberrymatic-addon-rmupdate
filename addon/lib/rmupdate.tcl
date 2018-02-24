@@ -55,9 +55,7 @@ proc array_to_json {a} {
 	set keys [lsort $keys]
 	set cur_id ""
 	foreach key $keys {
-		set tmp [split $key "::"]
-		set id [lindex $tmp 0]
-		set opt [lindex $tmp 2]
+		regexp {^(.+)::([^:]+)$} $key match id opt
 		if {$cur_id != $id} {
 			if {$cur_id != ""} {
 				set json [string range $json 0 end-1]
@@ -247,6 +245,58 @@ proc ::rmupdate::version {} {
 	return [string trim $data]
 }
 
+proc ::rmupdate::get_partitions {{device ""}} {
+	array set partitions {}
+	if {$device != ""} {
+		set data [exec /sbin/fdisk -l $device]
+	} else {
+		set data [exec /sbin/fdisk -l]
+	}
+	foreach d [split $data "\n"] {
+		if {[regexp {Disk\s+(\S+):.*\s(\d+)\s+bytes} $d match dev size]} {
+			set partitions(${dev}::0::partition) 0
+			set partitions(${dev}::0::disk_device) $dev
+			set partitions(${dev}::0::size) $size
+			
+			set data2 ""
+			catch {set data2 [exec /usr/sbin/parted $dev unit B print]}
+			foreach d2 [split $data2 "\n"] {
+				if {[regexp {^\s*(\d)\s+(\d+)B\s+(\d+)B\s+(\d+)B.*} $d2 match num start end size]} {
+					set partitions(${dev}::${num}::partition) $num
+					set partitions(${dev}::${num}::disk_device) $dev
+					set part_dev [get_partition_device $dev $num]
+					set partitions(${dev}::${num}::partition_device) $part_dev
+					set partitions(${dev}::${num}::start) $start
+					set partitions(${dev}::${num}::end) $end
+					set partitions(${dev}::${num}::size) $size
+					
+					set data3 [exec /sbin/blkid $part_dev]
+					foreach d3 [split $data3 "\n"] {
+						if {[regexp {LABEL="([^"]+)"} $d3 match lab]} {
+							set partitions(${dev}::${num}::filesystem_label) $lab
+						}
+						if {[regexp {UUID="([^"]+)"} $d3 match uuid]} {
+							set partitions(${dev}::${num}::filesystem_uuid) $uuid
+						}
+						if {[regexp {TYPE="([^"]+)"} $d3 match type]} {
+							set partitions(${dev}::${num}::filesystem_type) $type
+						}
+					}
+					
+					foreach f [glob /dev/disk/by-partuuid/*] {
+						catch {
+							if { [file tail [file readlink $f]] == [file tail $part_dev] } {
+								set partitions(${dev}::${num}::partition_uuid) [file tail $f]
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return [array get partitions]
+}
+
 proc ::rmupdate::get_partition_device {device partition} {
 	if { [regexp {mmcblk} $device match] } {
 		return "${device}p${partition}"
@@ -255,14 +305,17 @@ proc ::rmupdate::get_partition_device {device partition} {
 }
 
 proc ::rmupdate::get_partion_start_end_and_size {device partition} {
-	set data [exec /usr/sbin/parted $device unit B print]
-	foreach d [split $data "\n"] {
-		regexp {^\s*(\d)\s+(\d+)B\s+(\d+)B\s+(\d+)B.*} $d match num start end size
-		if { [info exists num] && $num == $partition } {
-			return [list $start $end $size]
-		}
+	if [catch {
+		array set partitions [get_partitions $device]
+		set res [list \
+			$partitions(${device}::${partition}::start) \
+			$partitions(${device}::${partition}::end) \
+			$partitions(${device}::${partition}::size) \
+		]
+	} err] {
+		error "Failed to get partition start and size of device ${device}, partition ${partition}."
 	}
-	error "Failed to get partition start and size of device ${device}, partition ${partition}."
+	return $res
 }
 
 proc ::rmupdate::is_system_upgradeable {} {
@@ -561,6 +614,59 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 	}
 }
 
+proc ::rmupdate::move_userfs_to_device {target_device {sync_data 0} {repartition 0}} {
+	variable mnt_sys
+	
+	if {![file exists $target_device]} {
+		error [i18n "Target device does not exist."]
+	}
+	
+	set source_device [get_system_device]
+	if { $source_device == $target_device} {
+		error [i18n "Source and target are the same device."]
+	}
+	
+	set partition 0
+	if {$repartition == 1} {
+		
+	} else {
+		for {set p 1} {$p <= 4} {incr p} {
+			set filesystem_label [get_filesystem_label $target_device $p]
+			if {[regexp "^.*userfs$" $filesystem_label match]} {
+				set partition $p
+			}
+		}
+	}
+	
+	set exitcode [catch {
+		exec /usr/sbin/parted --script ${target_device} \
+		mklabel msdos \
+		mkpart primary ext4 ${start1}B 100%
+	} output]
+	if { $exitcode != 0 && $exitcode != 1 } {
+		error $output
+	}
+	
+	set exitcode [catch { exec /sbin/mkfs.ext4 -F -L userfs [get_partition_device $target_device 1] } output]
+	if { $exitcode != 0 && $exitcode != 1 } {
+		error $output
+	}
+	
+	# Write ReGaHSS state to disk
+	load tclrega.so
+	rega system.Save()
+	
+	exec /bin/mount [get_partition_device $target_device 1] $mnt_sys
+	set shell_script "cd /usr/local; tar -c . | (cd $mnt_sys; tar -xv)"
+	set exitcode [catch { exec /bin/sh -c $shell_script } output]
+	exec /bin/umount $mnt_sys
+	if { $exitcode != 0 && $exitcode != 1 } {
+		error $output
+	}
+	
+	catch { exec tune2fs -L 0userfs [get_partition_device $source_device 4] }
+}
+
 proc ::rmupdate::clone_system {target_device {activate_clone 0}} {
 	variable mnt_sys
 	
@@ -626,7 +732,7 @@ proc ::rmupdate::clone_system {target_device {activate_clone 0}} {
 		error $output
 	}
 	set exitcode [catch { exec /sbin/mkfs.ext4 -F -L rootfs2 [get_partition_device $target_device 3] } output]
-		if { $exitcode != 0 && $exitcode != 1 } {
+	if { $exitcode != 0 && $exitcode != 1 } {
 		error $output
 	}
 	set exitcode [catch { exec /sbin/mkfs.ext4 -F -L userfs [get_partition_device $target_device 4] } output]
@@ -1294,7 +1400,7 @@ proc ::rmupdate::wlan_disconnect {} {
 #puts [rmupdate::is_firmware_up_to_date]
 #puts [rmupdate::get_latest_firmware_download_url]
 #rmupdate::check_sizes "/usr/local/addons/raspmatic-update/tmp/RaspberryMatic-2.27.7.20170316.img"
-#set res [rmupdate::get_partion_start_end_and_size "/dev/mmcblk0" 1]
+#puts [rmupdate::get_partion_start_end_and_size "/dev/mmcblk0" 1]
 #rmupdate::mount_image_partition "/usr/local/addons/raspmatic-update/tmp/RaspberryMatic-2.27.7.20170316.img" 1 $rmupdate::mnt_img
 #rmupdate::umount $rmupdate::mnt_img
 #rmupdate::mount_system_partition "/boot" $rmupdate::mnt_sys
@@ -1308,3 +1414,5 @@ proc ::rmupdate::wlan_disconnect {} {
 #puts [rmupdate::get_system_device]
 #puts $rmupdate::sys_dev
 #rmupdate::clone_system /dev/sda 1
+#puts [rmupdate::get_partitions]
+#puts [array_to_json [rmupdate::get_partitions]]
