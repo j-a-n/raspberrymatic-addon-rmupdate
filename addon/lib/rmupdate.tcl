@@ -391,6 +391,20 @@ proc ::rmupdate::get_system_device {} {
 	return "/dev/mmcblk0"
 }
 
+proc ::rmupdate::get_mounted_device {mountpoint} {
+	set fd [open /etc/mtab r]
+	set data [read $fd]
+	close $fd
+	foreach d [split $data "\n"] {
+		if { [regexp {^(\S+)\s+(\S+)\s+} $d match device mp] } {
+			if {$mp == $mountpoint} {
+				return $device
+			}
+		}
+	}
+	return ""
+}
+
 proc ::rmupdate::get_current_root_partition_number {} {
 	set cmdline "/proc/cmdline"
 	set fd [open $cmdline r]
@@ -575,11 +589,11 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 		if [catch {
 			set out ""
 			if {$dryrun} {
-				write_log 4 "rsync --dry-run --progress --archive --delete ${mnt_img}/ ${mnt_s}"
-				set out [exec rsync --dry-run --progress --archive --delete ${mnt_img} ${mnt_s}]
+				write_log 4 "rsync --dry-run --progress --archive --one-file-system --delete ${mnt_img}/ ${mnt_s}"
+				set out [exec rsync --dry-run --progress --archive --one-file-system --delete ${mnt_img} ${mnt_s}]
 			} else {
-				write_log 4 "rsync --progress --archive --delete ${mnt_img}/ ${mnt_s}"
-				set out [exec rsync --progress --archive --delete ${mnt_img}/ ${mnt_s}]
+				write_log 4 "rsync --progress --archive --one-file-system --delete ${mnt_img}/ ${mnt_s}"
+				set out [exec rsync --progress --archive --one-file-system --delete ${mnt_img}/ ${mnt_s}]
 			}
 			write_log 4 $out
 		} err] {
@@ -621,50 +635,69 @@ proc ::rmupdate::move_userfs_to_device {target_device {sync_data 0} {repartition
 		error [i18n "Target device does not exist."]
 	}
 	
-	set source_device [get_system_device]
+	set source_partition_device [get_mounted_device "/usr/local"]
+	set source_device [string range $source_partition_device 0 end-1]
+	if { [regexp {mmcblk} $source_partition_device match] } {
+		set source_device [string range $source_partition_device 0 end-2]
+	}
+	
+	if { $source_device == ""} {
+		error [i18n "Failed to find source device for /usr/local."]
+	}
 	if { $source_device == $target_device} {
 		error [i18n "Source and target are the same device."]
 	}
 	
-	set partition 0
+	set partition_number 0
 	if {$repartition == 1} {
-		
+		set exitcode [catch {
+			exec /usr/sbin/parted --script ${target_device} \
+			mklabel msdos \
+			mkpart primary ext4 0% 100%
+		} output]
+		if { $exitcode != 0 && $exitcode != 1 } {
+			error $output
+		}
+		set partition_number 1
 	} else {
-		for {set p 1} {$p <= 4} {incr p} {
-			set filesystem_label [get_filesystem_label $target_device $p]
-			if {[regexp "^.*userfs$" $filesystem_label match]} {
-				set partition $p
+		array set partitions [get_partitions $target_device]
+		set keys [array names partitions]
+		foreach key $keys {
+			regexp {^(.+)::([^:]+)$} $key match id opt
+			if {$opt == "filesystem_label"} {
+				if {[regexp "^.*userfs$" $partitions($key) match]} {
+					set partition_number $partitions(${id}::partition)
+				}
 			}
+		}
+		if {$partition_number == 0} {
+			error [format [i18n "Failed to find userfs partition on %s, and repartition is not desired."] $target_device]
+		}
+	}
+	set target_partition_device [get_partition_device $target_device $partition_number]
+	
+	if {$sync_data == 1} {
+		set exitcode [catch { exec /sbin/mkfs.ext4 -F -L userfs $target_partition_device } output]
+		if { $exitcode != 0 && $exitcode != 1 } {
+			error $output
+		}
+		# Write ReGaHSS state to disk
+		load tclrega.so
+		rega system.Save()
+		
+		file mkdir $mnt_sys
+		exec /bin/mount $target_partition_device $mnt_sys
+		#set shell_script "cd /usr/local; tar -c . | (cd $mnt_sys; tar -xv)"
+		#set exitcode [catch { exec /bin/sh -c $shell_script } output]
+		set out [exec rsync --progress --archive --one-file-system --delete /usr/local/ ${mnt_sys}]
+		exec /bin/umount $mnt_sys
+		if { $exitcode != 0 && $exitcode != 1 } {
+			error $output
 		}
 	}
 	
-	set exitcode [catch {
-		exec /usr/sbin/parted --script ${target_device} \
-		mklabel msdos \
-		mkpart primary ext4 ${start1}B 100%
-	} output]
-	if { $exitcode != 0 && $exitcode != 1 } {
-		error $output
-	}
-	
-	set exitcode [catch { exec /sbin/mkfs.ext4 -F -L userfs [get_partition_device $target_device 1] } output]
-	if { $exitcode != 0 && $exitcode != 1 } {
-		error $output
-	}
-	
-	# Write ReGaHSS state to disk
-	load tclrega.so
-	rega system.Save()
-	
-	exec /bin/mount [get_partition_device $target_device 1] $mnt_sys
-	set shell_script "cd /usr/local; tar -c . | (cd $mnt_sys; tar -xv)"
-	set exitcode [catch { exec /bin/sh -c $shell_script } output]
-	exec /bin/umount $mnt_sys
-	if { $exitcode != 0 && $exitcode != 1 } {
-		error $output
-	}
-	
-	catch { exec tune2fs -L 0userfs [get_partition_device $source_device 4] }
+	catch { exec tune2fs -L 0userfs $source_partition_device }
+	catch { exec tune2fs -L userfs $target_partition_device }
 }
 
 proc ::rmupdate::clone_system {target_device {activate_clone 0}} {
@@ -898,7 +931,7 @@ proc ::rmupdate::download_firmware {version} {
 	}
 	exec /usr/bin/unzip "${archive_file}" "${img_file}" -o -d "${img_dir}" 2>/dev/null
 	set img_file "${img_dir}/${img_file}"
-	puts "${img_file} ${image_file}"
+	#puts "${img_file} ${image_file}"
 	if {$img_file != $image_file} {
 		file rename $img_file $image_file
 	}
@@ -1416,3 +1449,4 @@ proc ::rmupdate::wlan_disconnect {} {
 #rmupdate::clone_system /dev/sda 1
 #puts [rmupdate::get_partitions]
 #puts [array_to_json [rmupdate::get_partitions]]
+#puts [rmupdate::move_userfs_to_device /dev/sda 1 0]

@@ -298,7 +298,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$("#system-info").empty();
 				$("#system-info").append(
 					$('<div class="item">').html(i18next.t('system_type', {'system_type': data.system_type})),
-					$('<div class="item">').html(i18next.t('current_root_partiton', {'root_partition': data.root_partition}))
+					$('<div class="item">').html(i18next.t('current_root_partiton', {'root_partition': data.root_partition})),
+					$('<div class="item">').html(i18next.t('current_user_partiton', {'user_partition': data.user_partition}))
 				);
 			});
 		}
@@ -491,6 +492,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							title: 'System update',
 							system_info: 'System information',
 							current_root_partiton: 'Current root partition: {{root_partition}}',
+							current_user_partiton: 'Current user partition: {{user_partition}}',
 							system_type: 'System type: {{system_type}}',
 							reboot_system: 'Reboot system',
 							shutdown_system: 'Shutdown system',
@@ -552,6 +554,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							title: 'System-Aktualisierung',
 							system_info: 'System-Informationen',
 							current_root_partiton: 'Aktuelle Root-Partition: {{root_partition}}',
+							current_user_partiton: 'Aktuelle User-Partition: {{user_partition}}',
 							system_type: 'System-Typ: {{system_type}}',
 							reboot_system: 'System neu starten',
 							shutdown_system: 'System herunterfahren',

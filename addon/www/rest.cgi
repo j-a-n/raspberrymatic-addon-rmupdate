@@ -55,7 +55,8 @@ proc process {} {
 		} elseif {[lindex $path 1] == "get_system_info"} {
 			set system_type [rmupdate::get_rpi_version]
 			set root_partition [rmupdate::get_partition_device [rmupdate::get_system_device] [rmupdate::get_current_root_partition_number]]
-			return "\{\"system_type\":\"${system_type}\",\"root_partition\":\"${root_partition}\"\}"
+			set user_partition [rmupdate::get_mounted_device "/usr/local"]
+			return "\{\"system_type\":\"${system_type}\",\"root_partition\":\"${root_partition}\",\"user_partition\":\"${user_partition}\"\}"
 		} elseif {[lindex $path 1] == "system_reboot"} {
 			exec /sbin/reboot
 			return "\"reboot initiated\""
