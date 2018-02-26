@@ -1,6 +1,6 @@
 #  RaspMatic update addon
 #
-#  Copyright (C) 2017  Jan Schneider <oss@janschneider.net>
+#  Copyright (C) 2018  Jan Schneider <oss@janschneider.net>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -252,6 +252,24 @@ proc ::rmupdate::get_partitions {{device ""}} {
 	} else {
 		set data [exec /sbin/fdisk -l]
 	}
+	
+	set root_partuuid ""
+	set fd [open "/proc/cmdline" r]
+	set cmdline_data [read $fd]
+	close $fd
+	foreach d [split $cmdline_data "\n"] {
+		if { [regexp {root=PARTUUID=(\S+)} $d match partuuid] } {
+			set root_partuuid $partuuid
+			break
+		}
+	}
+	
+	#set fd [open /etc/mtab r]
+	#set mtab_data [read $fd]
+	#close $fd
+	
+	set df_data [exec /bin/df -a -T]
+	
 	foreach d [split $data "\n"] {
 		if {[regexp {Disk\s+(\S+):.*\s(\d+)\s+bytes} $d match dev size]} {
 			set partitions(${dev}::0::partition) 0
@@ -269,6 +287,24 @@ proc ::rmupdate::get_partitions {{device ""}} {
 					set partitions(${dev}::${num}::start) $start
 					set partitions(${dev}::${num}::end) $end
 					set partitions(${dev}::${num}::size) $size
+					set partitions(${dev}::${num}::partition_uuid) ""
+					set partitions(${dev}::${num}::filesystem_label) ""
+					set partitions(${dev}::${num}::filesystem_uuid) ""
+					set partitions(${dev}::${num}::filesystem_type) ""
+					set partitions(${dev}::${num}::mountpoint) ""
+					set partitions(${dev}::${num}::filesystem_size) -1
+					set partitions(${dev}::${num}::filesystem_used) -1
+					set partitions(${dev}::${num}::filesystem_avail) -1
+					set partitions(${dev}::${num}::filesystem_usage) -1
+					
+					foreach f [glob /dev/disk/by-partuuid/*] {
+						catch {
+							if { [file tail [file readlink $f]] == [file tail $part_dev] } {
+								set partitions(${dev}::${num}::partition_uuid) [file tail $f]
+								break
+							}
+						}
+					}
 					
 					set data3 [exec /sbin/blkid $part_dev]
 					foreach d3 [split $data3 "\n"] {
@@ -283,11 +319,32 @@ proc ::rmupdate::get_partitions {{device ""}} {
 						}
 					}
 					
-					foreach f [glob /dev/disk/by-partuuid/*] {
-						catch {
-							if { [file tail [file readlink $f]] == [file tail $part_dev] } {
-								set partitions(${dev}::${num}::partition_uuid) [file tail $f]
+					#foreach d4 [split $mtab_data "\n"] {
+					#	if { [regexp {^(\S+)\s+(\S+)\s+} $d4 match md mp] } {
+					#		if {$md == $part_dev} {
+					#			set partitions(${dev}::${num}::mountpoint) $mp
+					#			break
+					#		} elseif {$mp == "/" && $partitions(${dev}::${num}::partition_uuid) == $root_partuuid} {
+					#			set partitions(${dev}::${num}::mountpoint) $mp
+					#			break
+					#		}
+					#	}
+					#}
+					
+					# Filesystem           Type       1K-blocks      Used Available Use% Mounted on
+					# /dev/root            ext4          991512    346288    577640  37% /
+					foreach d4 [split $df_data "\n"] {
+						if { [regexp {^(\S+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)%\s+(\S+)\s*$} $d4 match dd dt ds du da dp dm] } {
+							if {$dd == $part_dev} {
+							} elseif {$dm == "/" && $partitions(${dev}::${num}::partition_uuid) == $root_partuuid} {
+							} else {
+								continue
 							}
+							set partitions(${dev}::${num}::mountpoint) $dm
+							set partitions(${dev}::${num}::filesystem_size) [format "%0.0f" [expr {$ds * 1024.0}]]
+							set partitions(${dev}::${num}::filesystem_used) [format "%0.0f" [expr {$du * 1024.0}]]
+							set partitions(${dev}::${num}::filesystem_avail) [format "%0.0f" [expr {$da * 1024.0}]]
+							set partitions(${dev}::${num}::filesystem_usage) [expr {$dp / 100.0}]
 						}
 					}
 				}

@@ -2,7 +2,7 @@
 
 #  RaspMatic update addon
 #
-#  Copyright (C) 2017  Jan Schneider <oss@janschneider.net>
+#  Copyright (C) 2018  Jan Schneider <oss@janschneider.net>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -54,9 +54,9 @@ proc process {} {
 			return [rmupdate::get_firmware_info]
 		} elseif {[lindex $path 1] == "get_system_info"} {
 			set system_type [rmupdate::get_rpi_version]
-			set root_partition [rmupdate::get_partition_device [rmupdate::get_system_device] [rmupdate::get_current_root_partition_number]]
-			set user_partition [rmupdate::get_mounted_device "/usr/local"]
-			return "\{\"system_type\":\"${system_type}\",\"root_partition\":\"${root_partition}\",\"user_partition\":\"${user_partition}\"\}"
+			return "\{\"system_type\":\"${system_type}\"\}"
+		} elseif {[lindex $path 1] == "get_partitions"} {
+			return [array_to_json [rmupdate::get_partitions]]
 		} elseif {[lindex $path 1] == "system_reboot"} {
 			exec /sbin/reboot
 			return "\"reboot initiated\""

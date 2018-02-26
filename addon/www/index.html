@@ -2,7 +2,7 @@
 <!--
 RaspMatic update addon
 
-Copyright (C) 2017  Jan Schneider <oss@janschneider.net>
+Copyright (C) 2018  Jan Schneider <oss@janschneider.net>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -114,6 +114,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function disable_buttons() {
+			$('#install-latest-firmware-button').addClass('disabled');
 			$('[data-install-firmware-version]').addClass('disabled');
 			$('[data-delete-firmware-version]').addClass('disabled');
 			$('[data-update-addon-id]').addClass('disabled');
@@ -123,6 +124,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function reset_buttons() {
+			$('#install-latest-firmware-button').removeClass('loading');
+			$('#install-latest-firmware-button').removeClass('disabled');
 			$('[data-install-firmware-version]').removeClass('loading');
 			$('[data-install-firmware-version]').removeClass('disabled');
 			$('[data-delete-firmware-version]').removeClass('disabled');
@@ -282,7 +285,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				);
 				if (current_firmware != latest_firmware) {
 					$("#firmware-summary").append(
-						$('<div class="ui green basic button" style="margin-top:20px; margin-bottom:20px;">').click(install_latest_firmware).append($('<i class="sign in icon">'), i18next.t('install_latest_firmware'))
+						$('<div id="install-latest-firmware-button" class="ui green basic button" style="margin-top:20px; margin-bottom:20px;">').click(install_latest_firmware).append($('<i class="sign in icon">'), i18next.t('install_latest_firmware'))
 					);
 				}
 				
@@ -297,10 +300,66 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			rest("GET", "/get_system_info", null, function(data) {
 				$("#system-info").empty();
 				$("#system-info").append(
-					$('<div class="item">').html(i18next.t('system_type', {'system_type': data.system_type})),
-					$('<div class="item">').html(i18next.t('current_root_partiton', {'root_partition': data.root_partition})),
-					$('<div class="item">').html(i18next.t('current_user_partiton', {'user_partition': data.user_partition}))
+					$('<div class="item">').html(i18next.t('system_type', {'system_type': data.system_type}))
 				);
+			});
+		}
+		
+		function format_size(size) {
+			if (size > 1024 * 1024 * 1024) {
+				return (parseInt(size)/1024/1024/1024).toFixed(1) + ' GB'
+			}
+			else if (size > 1024 * 1024) {
+				return (parseInt(size)/1024/1024).toFixed(1) + ' MB'
+			}
+			else {
+				return (parseInt(size)/1024).toFixed(1) + ' KB'
+			}
+		}
+		
+		function get_partitions() {
+			$('#dimmer-partition-info').addClass('active');
+			rest("GET", "/get_partitions", null, function(data) {
+				var disks = {};
+				data.forEach(function(partition) {
+					if (partition.partition == 0) {
+						disks[partition.disk_device] = {};
+					}
+				});
+				data.forEach(function(partition) {
+					disks[partition.disk_device][partition.partition] = partition;
+				});
+				$('#partition-info tbody').empty();
+				for (var disk_device in disks) {
+					parts = Object.keys(disks[disk_device]);
+					parts.sort();
+					for (var part in parts) {
+						var partition = disks[disk_device][part];
+						if (partition.partition == 0) {
+							var st = "border:none; border-top: 2px solid #aaafaf";
+							$("#partition-info tbody").append($('<tr style="background: #f8ffff;">').append(
+								$('<td style="'+st+'" class="top aligned" rowspan="' + parts.length + '">').append($('<label>' + partition.disk_device + '</label>')),
+								$('<td style="'+st+'" class="center aligned" colspan="4">'),
+								$('<td style="'+st+'">').append($('<label>' + format_size(partition.size) + '</label>')),
+								$('<td style="'+st+'">')
+							));
+						} else {
+							var usage = '';
+							if (partition.filesystem_usage && partition.filesystem_usage >= 0) {
+								usage = (parseFloat(partition.filesystem_usage) * 100).toFixed(0) + '%'
+							}
+							$("#partition-info tbody").append($('<tr>').append(
+								$('<td style="border-left: 1px solid rgba(34,36,38,.1)">').append($('<label>' + partition.partition + '</label>')),
+								$('<td>').append($('<label>' + partition.filesystem_type + '</label>')),
+								$('<td>').append($('<label>' + partition.filesystem_label + '</label>')),
+								$('<td>').append($('<label>' + partition.mountpoint + '</label>')),
+								$('<td>').append($('<label>' + format_size(partition.size) + '</label>')),
+								$('<td>').append($('<label>' + usage + '</label>'))
+							));
+						}
+					}
+				}
+				$('#dimmer-partition-info').removeClass('active');
 			});
 		}
 		
@@ -491,8 +550,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						translation: {
 							title: 'System update',
 							system_info: 'System information',
-							current_root_partiton: 'Current root partition: {{root_partition}}',
-							current_user_partiton: 'Current user partition: {{user_partition}}',
 							system_type: 'System type: {{system_type}}',
 							reboot_system: 'Reboot system',
 							shutdown_system: 'Shutdown system',
@@ -502,6 +559,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							sure_to_shutdown_system: 'Are you sure you want to shutdown the system now?',
 							system_is_rebooting: 'System is going down for reboot now.',
 							system_is_shutting_down: 'System is going down for shutdown now.',
+							partitions: 'Partitions',
+							device: 'Device',
+							partition_number: 'Partition',
+							filesystem_type: 'Filesystem',
+							filesystem_label: 'Label',
+							mountpoint: 'Mountpoint',
+							size: 'Size',
+							usage: 'Usage',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Current installed version',
 							latest_available_version: 'Latest available version',
@@ -553,8 +618,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						translation: {
 							title: 'System-Aktualisierung',
 							system_info: 'System-Informationen',
-							current_root_partiton: 'Aktuelle Root-Partition: {{root_partition}}',
-							current_user_partiton: 'Aktuelle User-Partition: {{user_partition}}',
 							system_type: 'System-Typ: {{system_type}}',
 							reboot_system: 'System neu starten',
 							shutdown_system: 'System herunterfahren',
@@ -564,6 +627,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							sure_to_shutdown_system: 'Soll das System jetzt heruntergefahren werden?',
 							system_is_rebooting: 'Das System wird neu gestartet.',
 							system_is_shutting_down: 'Das System wird heruntergefahren.',
+							partitions: 'Partitionen',
+							device: 'Gerät',
+							partition_number: 'Partition',
+							filesystem_type: 'Dateisystem',
+							filesystem_label: 'Label',
+							mountpoint: 'Einhängepunkt',
+							size: 'Größe',
+							usage: 'Belegt',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Momentan installierte Version',
 							latest_available_version: 'Aktuellste verfügbare Version',
@@ -654,6 +725,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 			});
 			get_system_info();
+			get_partitions();
 			get_firmware_info();
 			get_addon_info();
 			wlan_scan();
@@ -683,6 +755,32 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		</div>
 		<div class="ui orange basic button" data-i18n="reboot_system" onclick="show_reboot_dialog();"></div>
 		<div class="ui red basic button" data-i18n="shutdown_system" onclick="show_shutdown_dialog();"></div>
+		
+		<h2 class="ui header">
+			<i class="hdd outline icon"></i>
+			<div data-i18n="partitions" class="content">
+			</div>
+		</h2>
+		<div class="dimmable">
+			<div id="dimmer-partition-info" class="ui active inverted dimmer">
+				<div class="ui loader" data-i18n="loading"></div>
+			</div>
+			<table id="partition-info" class="ui celled stackable table">
+				<thead>
+					<tr>
+						<th data-i18n="device"></th>
+						<th data-i18n="partition_number"></th>
+						<th data-i18n="filesystem_type"></th>
+						<th data-i18n="filesystem_label"></th>
+						<th data-i18n="mountpoint"></th>
+						<th data-i18n="size"></th>
+						<th data-i18n="usage"></th>
+					</tr>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
+		</div>
 		
 		<h2 class="ui header">
 			<i class="settings icon"></i>
