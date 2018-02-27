@@ -319,7 +319,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function get_partitions() {
-			$('#dimmer-partition-info').addClass('active');
+			$('#dimmer-volume-info').addClass('active');
 			rest("GET", "/get_partitions", null, function(data) {
 				var disks = {};
 				data.forEach(function(partition) {
@@ -335,7 +335,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						disks[partition.disk_device].usr_local_on_disk = true;
 					}
 				});
-				$('#partition-info tbody').empty();
+				$('#volume-info tbody').empty();
 				for (var disk_device in disks) {
 					parts = Object.keys(disks[disk_device].partitions);
 					parts.sort();
@@ -364,7 +364,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						
 						if (partition.partition == 0) {
 							var st = "border:none; border-top: 2px solid #aaafaf";
-							$("#partition-info tbody").append($('<tr style="background: #f8ffff;">').append(
+							$("#volume-info tbody").append($('<tr style="background: #f8ffff;">').append(
 								$('<td style="'+st+'" class="top aligned" rowspan="' + parts.length + '">').append($('<label>' + partition.disk_device + '</label>')),
 								$('<td style="'+st+'" class="center aligned" colspan="4">'),
 								$('<td style="'+st+'">').append($('<label>' + format_size(partition.size) + '</label>')),
@@ -376,7 +376,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							if (partition.filesystem_usage && partition.filesystem_usage >= 0) {
 								usage = (parseFloat(partition.filesystem_usage) * 100).toFixed(0) + '%'
 							}
-							$("#partition-info tbody").append($('<tr>').append(
+							$("#volume-info tbody").append($('<tr>').append(
 								$('<td style="border-left: 1px solid rgba(34,36,38,.1)">').append($('<label>' + partition.partition + '</label>')),
 								$('<td>').append($('<label>' + partition.filesystem_type + '</label>')),
 								$('<td>').append($('<label>' + partition.filesystem_label + '</label>')),
@@ -389,7 +389,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					}
 					$('.dropdown').dropdown({});
 				}
-				$('#dimmer-partition-info').removeClass('active');
+				$('#dimmer-volume-info').removeClass('active');
 			});
 		}
 		
@@ -589,7 +589,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							sure_to_shutdown_system: 'Are you sure you want to shutdown the system now?',
 							system_is_rebooting: 'System is going down for reboot now.',
 							system_is_shutting_down: 'System is going down for shutdown now.',
-							partitions: 'Partitions',
+							volumes: 'Volumes',
 							device: 'Device',
 							partition_number: 'Partition',
 							filesystem_type: 'Filesystem',
@@ -659,7 +659,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							sure_to_shutdown_system: 'Soll das System jetzt heruntergefahren werden?',
 							system_is_rebooting: 'Das System wird neu gestartet.',
 							system_is_shutting_down: 'Das System wird heruntergefahren.',
-							partitions: 'Partitionen',
+							volumes: 'Datenträger',
 							device: 'Gerät',
 							partition_number: 'Partition',
 							filesystem_type: 'Dateisystem',
@@ -794,14 +794,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		
 		<h2 class="ui header">
 			<i class="hdd outline icon"></i>
-			<div data-i18n="partitions" class="content">
+			<div data-i18n="volumes" class="content">
 			</div>
 		</h2>
 		<div class="dimmable">
-			<div id="dimmer-partition-info" class="ui active inverted dimmer">
+			<div id="dimmer-volume-info" class="ui active inverted dimmer">
 				<div class="ui loader" data-i18n="loading"></div>
 			</div>
-			<table id="partition-info" class="ui celled stackable table">
+			<table id="volume-info" class="ui celled stackable table">
 				<thead>
 					<tr>
 						<th data-i18n="device"></th>
