@@ -1113,7 +1113,7 @@ proc ::rmupdate::delete_firmware_image {version} {
 	catch { eval {file delete [glob "${img_dir}/*${version}*.zip"]} }
 }
 
-proc ::rmupdate::install_firmware_version {version lang {reboot 1} {dryrun 0}} {
+proc ::rmupdate::install_firmware_version {version lang {reboot 1} {keep_download 0} {dryrun 0}} {
 	variable language
 	set language $lang
 	if {[get_running_installation] != ""} {
@@ -1141,6 +1141,10 @@ proc ::rmupdate::install_firmware_version {version lang {reboot 1} {dryrun 0}} {
 	get_system_device
 	check_sizes $firmware_image
 	update_filesystems $firmware_image $dryrun
+	
+	if {!$keep_download && !$dryrun} {
+		file delete $firmware_image
+	}
 	
 	set_running_installation ""
 	

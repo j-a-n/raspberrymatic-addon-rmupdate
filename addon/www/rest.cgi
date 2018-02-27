@@ -70,6 +70,7 @@ proc process {} {
 			regexp {\"language\"\s*:\s*\"([^\"]+)\"} $data match lang
 			regexp {\"reboot\"\s*:\s*(true|false)} $data match reboot
 			regexp {\"dryrun\"\s*:\s*(true|false)} $data match dryrun
+			regexp {\"keep_download\"\s*:\s*(true|false)} $data match keep_download
 			if { [info exists version] && $version != "" } {
 				if { ![info exists reboot] } {
 					set reboot "true"
@@ -79,7 +80,7 @@ proc process {} {
 				} else {
 					set reboot 0
 				}
-				if { ![info exists reboot] } {
+				if { ![info exists dryrun] } {
 					set dryrun "false"
 				}
 				if {$dryrun == "true"} {
@@ -87,7 +88,15 @@ proc process {} {
 				} else {
 					set dryrun 0
 				}
-				return "\"[rmupdate::install_firmware_version $version $lang $reboot $dryrun]\""
+				if { ![info exists keep_download] } {
+					set keep_download "false"
+				}
+				if {$keep_download == "true"} {
+					set keep_download 1
+				} else {
+					set keep_download 0
+				}
+				return "\"[rmupdate::install_firmware_version $version $lang $reboot $keep_download $dryrun]\""
 			} else {
 				error "Invalid version: ${data}"
 			}

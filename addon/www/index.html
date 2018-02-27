@@ -217,9 +217,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			$('#modal-log').modal('show');
 			if (!running_installation) {
 				var reboot = $('#reboot-after-install').is(':checked');
+				var keep_download = ! $('#delete-download-after-install').is(':checked');
 				var dryrun = $('#dryrun').is(':checked');
 				set_running_installation("Firmware " + version);
-				rest("POST", "/start_install_firmware", JSON.stringify({"language": language, "version":version, "reboot":reboot, "dryrun":dryrun}),
+				rest("POST", "/start_install_firmware", JSON.stringify({"language": language, "version":version, "reboot":reboot, "dryrun":dryrun, "keep_download": keep_download}),
 					function(data) {
 						// We are not expecting a response
 					},
@@ -580,6 +581,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							installation_log: 'Installation log',
 							open_release_info: 'Open release info',
 							perform_trial_run: 'Perform a trial run with no changes made',
+							delete_download_after_install: 'Delete download after installation',
 							reboot_after_install: 'Reboot system after installation',
 							addons: 'Addons',
 							addon_name: 'Addon name',
@@ -648,6 +650,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							installation_log: 'Installations-Protokoll',
 							open_release_info: 'Release-Informationen öffnen',
 							perform_trial_run: 'Testlauf durchführen ohne Änderungen durchzuführen',
+							delete_download_after_install: 'Download nach Installation löschen',
 							reboot_after_install: 'System nach Installation neu starten',
 							addons: 'Zusatzsoftware',
 							addon_name: 'Name des Addons',
@@ -809,6 +812,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			<div class="ui checkbox">
 				<input id="dryrun" type="checkbox">
 				<label data-i18n="perform_trial_run"></label>
+			</div>
+			<br />
+			<div class="ui checkbox">
+				<input id="delete-download-after-install" type="checkbox" checked="checked">
+				<label data-i18n="delete_download_after_install"></label>
 			</div>
 			<br />
 			<div class="ui checkbox">
