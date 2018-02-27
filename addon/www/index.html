@@ -38,6 +38,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		var current_firmware = '?';
 		var latest_firmware = '?';
 		var wlanScanTimer;
+		var moving_userfs_to_device = false;
 		
 		function display_message(type, text, millis) {
 			clear_message();
@@ -326,14 +327,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				data.forEach(function(partition) {
 					if (partition.partition == 0) {
 						disks[partition.disk_device] = partition;
-						disks[partition.disk_device].usr_local_on_disk = false;
+						disks[partition.disk_device].userfs_on_disk = false;
+						disks[partition.disk_device].bootfs_on_disk = false;
 						disks[partition.disk_device].partitions = {};
 					}
 				});
 				data.forEach(function(partition) {
 					disks[partition.disk_device].partitions[partition.partition] = partition;
 					if (partition.mountpoint == '/usr/local') {
-						disks[partition.disk_device].usr_local_on_disk = true;
+						disks[partition.disk_device].userfs_on_disk = true;
+					}
+					else if (partition.mountpoint == '/boot') {
+						disks[partition.disk_device].bootfs_on_disk = true;
 					}
 				});
 				$('#volume-info tbody').empty();
@@ -345,7 +350,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						var partition = disks[disk_device].partitions[part];
 						
 						var menu_items = [];
-						if (! disks[disk_device].usr_local_on_disk) {
+						var skip_dev = false;
+						if (disks[disk_device].userfs_on_disk) {
+							skip_dev = true;
+						}
+						else if (disks[disk_device].bootfs_on_disk && (partition.partition == 0)) {
+							skip_dev = true;
+						}
+						else if ((partition.partition > 0) && (partition.filesystem_label == 'bootfs' || partition.filesystem_label == 'rootfs' || partition.filesystem_label == 'rootfs1' || partition.filesystem_label == 'rootfs2')) {
+							skip_dev = true;
+						}
+							
+						if (! skip_dev) {
 							var device = partition.disk_device;
 							var label = i18next.t('use_disk_for_userfs');
 							if (partition.partition > 0) {
@@ -355,15 +371,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							menu_items.push($('<a class="item">').append(label).attr('data-device', device).click(function() {
 								var target_device = this.getAttribute('data-device');
 								$('#modal-move-userfs').modal({
-									onDeny: function(){
+									onDeny: function() {
 										return true;
 									},
 									onApprove: function() {
-										rest('POST', '/move_userfs_to_device', JSON.stringify({"target_device":target_device}), function(data) {
-											display_message('success', i18next.t('userfs_moved'), 120000);
-											rest('POST', '/system_reboot');
-										});
-										return true;
+										moving_userfs_to_device = true;
+										display_message('warning', i18next.t('moving_userfs'), 300000);
+										rest('POST', '/move_userfs_to_device', JSON.stringify({"target_device":target_device}),
+											function(data) {
+												moving_userfs_to_device = false;
+												display_message('success', i18next.t('userfs_moved'), 120000);
+												rest('POST', '/system_reboot');
+											},
+											function(xhr, ajaxOptions, thrownError) {
+												moving_userfs_to_device = false;
+												default_error_callback(xhr, ajaxOptions, thrownError);
+											}
+										);
 									}
 								})
 								.modal('show');
@@ -371,7 +395,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						}
 						var menu = null;
 						if (menu_items.length > 0) {
-							menu = $('<div class="ui compact menu" style="min-height:30px; max-height: 30px;">').append(
+							menu = $('<div class="ui compact menu" style="min-height:28px; max-height:28px;">').append(
 								$('<div class="ui dropdown item">').append(
 									i18next.t('action'),
 									$('<i class="dropdown icon">'),
@@ -621,6 +645,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							move_userfs: 'Move userfs to another device',
 							sure_to_move_userfs: 'Are you sure you want to move userfs?',
 							move: 'Move',
+							moving_userfs: 'Moving userfs, please wait, this will take a while...',
 							userfs_moved: 'Userfs moved, system will reboot now.',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Current installed version',
@@ -697,6 +722,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							move_userfs: 'Userfs auf anderen Datenträger verschieben',
 							sure_to_move_userfs: 'Soll das userfs wirklich verschoben werden?',
 							move: 'Verschieben',
+							moving_userfs: 'Verschiebe userfs, bitte warten, dies kann einige Zeit dauern...',
 							userfs_moved: 'Userfs wurde verschoben, das System wird neu gestartet.',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Momentan installierte Version',

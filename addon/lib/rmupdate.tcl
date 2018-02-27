@@ -710,18 +710,14 @@ proc ::rmupdate::move_userfs_to_device {target_device {sync_data 0} {repartition
 	}
 	
 	set source_partition_device [get_mounted_device "/usr/local"]
-	set source_device [string range $source_partition_device 0 end-1]
-	if { [regexp {mmcblk} $source_partition_device match] } {
-		set source_device [string range $source_partition_device 0 end-2]
-	}
+	set source_device [get_disk_device $source_partition_device]
 	
-	if { $source_device == ""} {
+	if {$source_partition_device == "" || $source_device == ""} {
 		error [i18n "Failed to find source device for /usr/local."]
 	}
-	if { $source_device == $target_device} {
+	if {$source_device == $target_device} {
 		error [i18n "Source and target are the same device."]
 	}
-	
 	
 	if {$target_partition_device == ""} {
 		set partition_number 0
@@ -774,8 +770,8 @@ proc ::rmupdate::move_userfs_to_device {target_device {sync_data 0} {repartition
 		}
 	}
 	
-	catch { exec tune2fs -L 0userfs $source_partition_device }
-	catch { exec tune2fs -L userfs $target_partition_device }
+	catch { exec /sbin/tune2fs -L 0userfs $source_partition_device }
+	catch { exec /sbin/tune2fs -L userfs $target_partition_device }
 }
 
 proc ::rmupdate::clone_system {target_device {activate_clone 0}} {
@@ -1533,3 +1529,4 @@ proc ::rmupdate::wlan_disconnect {} {
 #puts [rmupdate::get_partitions]
 #puts [array_to_json [rmupdate::get_partitions]]
 #rmupdate::move_userfs_to_device /dev/sda1 1 0
+#puts [rmupdate::get_mounted_device "/usr/local"]
