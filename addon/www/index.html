@@ -324,25 +324,52 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				var disks = {};
 				data.forEach(function(partition) {
 					if (partition.partition == 0) {
-						disks[partition.disk_device] = {};
+						disks[partition.disk_device] = partition;
+						disks[partition.disk_device].usr_local_on_disk = false;
+						disks[partition.disk_device].partitions = {};
 					}
 				});
 				data.forEach(function(partition) {
-					disks[partition.disk_device][partition.partition] = partition;
+					disks[partition.disk_device].partitions[partition.partition] = partition;
+					if (partition.mountpoint == '/usr/local') {
+						disks[partition.disk_device].usr_local_on_disk = true;
+					}
 				});
 				$('#partition-info tbody').empty();
 				for (var disk_device in disks) {
-					parts = Object.keys(disks[disk_device]);
+					parts = Object.keys(disks[disk_device].partitions);
 					parts.sort();
+					
 					for (var part in parts) {
-						var partition = disks[disk_device][part];
+						var partition = disks[disk_device].partitions[part];
+						
+						var menu_items = [];
+						if ((partition.partition == 0) && (! disks[disk_device].usr_local_on_disk)) {
+							menu_items.push($('<a class="item">').append(i18next.t('use_disk_for_userfs')).attr('data-disk-device', partition.disk_device).click(function() {
+								alert("test: " + this.getAttribute('data-disk-device'));
+							}));
+						}
+						var menu = null;
+						/*
+						if (menu_items.length > 0) {
+							menu = $('<div class="ui compact menu" style="min-height:30px; max-height: 30px;">').append(
+								$('<div class="ui dropdown item">').append(
+									i18next.t('action'),
+									$('<i class="dropdown icon">'),
+									$('<div class="menu">').append(menu_items)
+								)
+							)
+						}
+						*/
+						
 						if (partition.partition == 0) {
 							var st = "border:none; border-top: 2px solid #aaafaf";
 							$("#partition-info tbody").append($('<tr style="background: #f8ffff;">').append(
 								$('<td style="'+st+'" class="top aligned" rowspan="' + parts.length + '">').append($('<label>' + partition.disk_device + '</label>')),
 								$('<td style="'+st+'" class="center aligned" colspan="4">'),
 								$('<td style="'+st+'">').append($('<label>' + format_size(partition.size) + '</label>')),
-								$('<td style="'+st+'">')
+								$('<td style="'+st+'">'),
+								$('<td style="'+st+'" class="center aligned">').append(menu)
 							));
 						} else {
 							var usage = '';
@@ -355,10 +382,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 								$('<td>').append($('<label>' + partition.filesystem_label + '</label>')),
 								$('<td>').append($('<label>' + partition.mountpoint + '</label>')),
 								$('<td>').append($('<label>' + format_size(partition.size) + '</label>')),
-								$('<td>').append($('<label>' + usage + '</label>'))
+								$('<td>').append($('<label>' + usage + '</label>')),
+								$('<td class="center aligned">').append(menu)
 							));
 						}
 					}
+					$('.dropdown').dropdown({});
 				}
 				$('#dimmer-partition-info').removeClass('active');
 			});
@@ -568,6 +597,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							mountpoint: 'Mountpoint',
 							size: 'Size',
 							usage: 'Usage',
+							use_disk_for_userfs: 'Use whole disk for userfs.',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Current installed version',
 							latest_available_version: 'Latest available version',
@@ -637,6 +667,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							mountpoint: 'Einhängepunkt',
 							size: 'Größe',
 							usage: 'Belegt',
+							use_disk_for_userfs: 'Den gesamten Datenträger für das userfs verwenden.',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Momentan installierte Version',
 							latest_available_version: 'Aktuellste verfügbare Version',
@@ -732,6 +763,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			get_firmware_info();
 			get_addon_info();
 			wlan_scan();
+			
+			
 		});
 	</script>
 </head>
@@ -778,6 +811,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						<th data-i18n="mountpoint"></th>
 						<th data-i18n="size"></th>
 						<th data-i18n="usage"></th>
+						<th class="center aligned" data-i18n="action"></th>
 					</tr>
 				</thead>
 				<tbody>
