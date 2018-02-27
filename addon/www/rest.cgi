@@ -54,9 +54,13 @@ proc process {} {
 			return [rmupdate::get_firmware_info]
 		} elseif {[lindex $path 1] == "get_system_info"} {
 			set system_type [rmupdate::get_rpi_version]
-			return "\{\"system_type\":\"${system_type}\"\}"
+			set uptime [exec /usr/bin/uptime]
+			return "\{\"system_type\":\"${system_type}\",\"uptime\":\"${uptime}\"\}"
 		} elseif {[lindex $path 1] == "get_partitions"} {
 			return [array_to_json [rmupdate::get_partitions]]
+		} elseif {[lindex $path 1] == "move_userfs_to_device"} {
+			regexp {\"target_device\"\s*:\s*\"([^\"]+)\"} $data match target_device
+			return [rmupdate::move_userfs_to_device $target_device 1 1]
 		} elseif {[lindex $path 1] == "system_reboot"} {
 			exec /sbin/reboot
 			return "\"reboot initiated\""

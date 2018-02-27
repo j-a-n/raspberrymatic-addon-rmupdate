@@ -301,7 +301,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			rest("GET", "/get_system_info", null, function(data) {
 				$("#system-info").empty();
 				$("#system-info").append(
-					$('<div class="item">').html(i18next.t('system_type', {'system_type': data.system_type}))
+					$('<div class="item">').html(i18next.t('system_type', {'system_type': data.system_type})),
+					$('<div class="item">').html(i18next.t('uptime', {'uptime': data.uptime}))
 				);
 			});
 		}
@@ -344,13 +345,31 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						var partition = disks[disk_device].partitions[part];
 						
 						var menu_items = [];
-						if ((partition.partition == 0) && (! disks[disk_device].usr_local_on_disk)) {
-							menu_items.push($('<a class="item">').append(i18next.t('use_disk_for_userfs')).attr('data-disk-device', partition.disk_device).click(function() {
-								alert("test: " + this.getAttribute('data-disk-device'));
+						if (! disks[disk_device].usr_local_on_disk) {
+							var device = partition.disk_device;
+							var label = i18next.t('use_disk_for_userfs');
+							if (partition.partition > 0) {
+								device = partition.partition_device;
+								var label = i18next.t('use_partition_for_userfs');
+							}
+							menu_items.push($('<a class="item">').append(label).attr('data-device', device).click(function() {
+								var target_device = this.getAttribute('data-device');
+								$('#modal-move-userfs').modal({
+									onDeny: function(){
+										return true;
+									},
+									onApprove: function() {
+										rest('POST', '/move_userfs_to_device', JSON.stringify({"target_device":target_device}), function(data) {
+											display_message('success', i18next.t('userfs_moved'), 120000);
+											rest('POST', '/system_reboot');
+										});
+										return true;
+									}
+								})
+								.modal('show');
 							}));
 						}
 						var menu = null;
-						/*
 						if (menu_items.length > 0) {
 							menu = $('<div class="ui compact menu" style="min-height:30px; max-height: 30px;">').append(
 								$('<div class="ui dropdown item">').append(
@@ -360,7 +379,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 								)
 							)
 						}
-						*/
 						
 						if (partition.partition == 0) {
 							var st = "border:none; border-top: 2px solid #aaafaf";
@@ -581,6 +599,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							title: 'System update',
 							system_info: 'System information',
 							system_type: 'System type: {{system_type}}',
+							uptime: 'Uptime: {{uptime}}',
 							reboot_system: 'Reboot system',
 							shutdown_system: 'Shutdown system',
 							reboot: 'Reboot',
@@ -598,6 +617,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							size: 'Size',
 							usage: 'Usage',
 							use_disk_for_userfs: 'Use whole disk for userfs.',
+							use_partition_for_userfs: 'Use partition for userfs.',
+							move_userfs: 'Move userfs to another device',
+							sure_to_move_userfs: 'Are you sure you want to move userfs?',
+							move: 'Move',
+							userfs_moved: 'Userfs moved, system will reboot now.',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Current installed version',
 							latest_available_version: 'Latest available version',
@@ -651,6 +675,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							title: 'System-Aktualisierung',
 							system_info: 'System-Informationen',
 							system_type: 'System-Typ: {{system_type}}',
+							uptime: 'Betriebszeit: {{uptime}}',
 							reboot_system: 'System neu starten',
 							shutdown_system: 'System herunterfahren',
 							reboot: 'Neu starten',
@@ -668,6 +693,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							size: 'Größe',
 							usage: 'Belegt',
 							use_disk_for_userfs: 'Den gesamten Datenträger für das userfs verwenden.',
+							use_partition_for_userfs: 'Die Partition als userfs verwenden.',
+							move_userfs: 'Userfs auf anderen Datenträger verschieben',
+							sure_to_move_userfs: 'Soll das userfs wirklich verschoben werden?',
+							move: 'Verschieben',
+							userfs_moved: 'Userfs wurde verschoben, das System wird neu gestartet.',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Momentan installierte Version',
 							latest_available_version: 'Aktuellste verfügbare Version',
@@ -977,6 +1007,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			<div data-i18n="cancel" class="ui gray basic cancel inverted button">
 			</div>
 			<div data-i18n="shutdown" class="ui red approve inverted button">
+			</div>
+		</div>
+	</div>
+	
+	<div id="modal-move-userfs" class="ui small basic modal transition scrolling">
+		<div data-i18n="move_userfs" class="header"></div>
+		<div class="content">
+			<p data-i18n="sure_to_move_userfs"></p>
+		</div>
+		<div class="actions">
+			<div data-i18n="cancel" class="ui gray basic cancel inverted button">
+			</div>
+			<div data-i18n="move" class="ui red approve inverted button">
 			</div>
 		</div>
 	</div>

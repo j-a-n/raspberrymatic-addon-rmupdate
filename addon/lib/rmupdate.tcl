@@ -354,6 +354,16 @@ proc ::rmupdate::get_partitions {{device ""}} {
 	return [array get partitions]
 }
 
+proc ::rmupdate::get_disk_device {partition_device} {
+	if { [regexp {^(\S+mmcblk\d)p\d$} $partition_device match disk_device] } {
+		return $disk_device
+	}
+	if { [regexp {^(\S+)\d$} $partition_device match disk_device] } {
+		return $disk_device
+	}
+	return $partition_device
+}
+
 proc ::rmupdate::get_partition_device {device partition} {
 	if { [regexp {mmcblk} $device match] } {
 		return "${device}p${partition}"
@@ -692,6 +702,13 @@ proc ::rmupdate::move_userfs_to_device {target_device {sync_data 0} {repartition
 		error [i18n "Target device does not exist."]
 	}
 	
+	set target_partition_device ""
+	if {[get_disk_device $target_device] != $target_device} {
+		set target_partition_device $target_device
+		set target_device [get_disk_device $target_partition_device]
+		set repartition 0
+	}
+	
 	set source_partition_device [get_mounted_device "/usr/local"]
 	set source_device [string range $source_partition_device 0 end-1]
 	if { [regexp {mmcblk} $source_partition_device match] } {
@@ -705,35 +722,39 @@ proc ::rmupdate::move_userfs_to_device {target_device {sync_data 0} {repartition
 		error [i18n "Source and target are the same device."]
 	}
 	
-	set partition_number 0
-	if {$repartition == 1} {
-		set exitcode [catch {
-			exec /usr/sbin/parted --script ${target_device} \
-			mklabel msdos \
-			mkpart primary ext4 0% 100%
-		} output]
-		if { $exitcode != 0 && $exitcode != 1 } {
-			error $output
-		}
-		set partition_number 1
-	} else {
-		array set partitions [get_partitions $target_device]
-		set keys [array names partitions]
-		foreach key $keys {
-			regexp {^(.+)::([^:]+)$} $key match id opt
-			if {$opt == "filesystem_label"} {
-				if {[regexp "^.*userfs$" $partitions($key) match]} {
-					set partition_number $partitions(${id}::partition)
+	
+	if {$target_partition_device == ""} {
+		set partition_number 0
+		if {$repartition == 1} {
+			set exitcode [catch {
+				exec /usr/sbin/parted --script ${target_device} \
+				mklabel msdos \
+				mkpart primary ext4 0% 100%
+			} output]
+			if { $exitcode != 0 && $exitcode != 1 } {
+				error $output
+			}
+			set partition_number 1
+		} else {
+			array set partitions [get_partitions $target_device]
+			set keys [array names partitions]
+			foreach key $keys {
+				regexp {^(.+)::([^:]+)$} $key match id opt
+				if {$opt == "filesystem_label"} {
+					if {[regexp "^.*userfs$" $partitions($key) match]} {
+						set partition_number $partitions(${id}::partition)
+					}
 				}
 			}
+			if {$partition_number == 0} {
+				error [format [i18n "Failed to find userfs partition on %s, and repartition is not desired."] $target_device]
+			}
 		}
-		if {$partition_number == 0} {
-			error [format [i18n "Failed to find userfs partition on %s, and repartition is not desired."] $target_device]
-		}
+		set target_partition_device [get_partition_device $target_device $partition_number]
 	}
-	set target_partition_device [get_partition_device $target_device $partition_number]
 	
 	if {$sync_data == 1} {
+		catch { exec /bin/umount $target_partition_device }
 		set exitcode [catch { exec /sbin/mkfs.ext4 -F -L userfs $target_partition_device } output]
 		if { $exitcode != 0 && $exitcode != 1 } {
 			error $output
@@ -1508,6 +1529,7 @@ proc ::rmupdate::wlan_disconnect {} {
 #puts [rmupdate::get_system_device]
 #puts $rmupdate::sys_dev
 #rmupdate::clone_system /dev/sda 1
+#puts [rmupdate::get_disk_device /dev/mmcblk0p3]
 #puts [rmupdate::get_partitions]
 #puts [array_to_json [rmupdate::get_partitions]]
-#puts [rmupdate::move_userfs_to_device /dev/sda 1 0]
+#rmupdate::move_userfs_to_device /dev/sda1 1 0
