@@ -278,7 +278,7 @@ proc ::rmupdate::get_partitions {{device ""}} {
 			set partitions(${dev}::0::size) $size
 			
 			set data2 ""
-			catch {set data2 [exec /usr/sbin/parted $dev unit B print]}
+			catch {set data2 [exec /usr/sbin/parted $dev unit B print]} data2
 			foreach d2 [split $data2 "\n"] {
 				if {[regexp {^Model:\s*(\S.*)\s*$} $d2 match model]} {
 					set partitions(${dev}::0::model) $model
