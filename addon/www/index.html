@@ -309,13 +309,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function format_size(size) {
+			if (size < 0) {
+				size = 0;
+			}
 			if (size > 1024 * 1024 * 1024) {
 				return (parseInt(size)/1024/1024/1024).toFixed(1) + ' GB'
 			}
 			else if (size > 1024 * 1024) {
 				return (parseInt(size)/1024/1024).toFixed(1) + ' MB'
 			}
-			else {
+			else  {
 				return (parseInt(size)/1024).toFixed(1) + ' KB'
 			}
 		}
@@ -348,6 +351,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					
 					for (var part in parts) {
 						var partition = disks[disk_device].partitions[part];
+						var is_sys_partition = (partition.filesystem_label == 'userfs' || partition.filesystem_label == 'bootfs' || partition.filesystem_label == 'rootfs' || partition.filesystem_label == 'rootfs1' || partition.filesystem_label == 'rootfs2')
 						
 						var menu_items = [];
 						var skip_dev = false;
@@ -357,10 +361,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						else if (disks[disk_device].bootfs_on_disk && (partition.partition == 0)) {
 							skip_dev = true;
 						}
-						else if ((partition.partition > 0) && (partition.filesystem_label == 'bootfs' || partition.filesystem_label == 'rootfs' || partition.filesystem_label == 'rootfs1' || partition.filesystem_label == 'rootfs2')) {
+						else if (is_sys_partition && (partition.partition > 0)) {
 							skip_dev = true;
 						}
-							
+						
 						if (! skip_dev) {
 							var device = partition.disk_device;
 							var label = i18next.t('use_disk_for_userfs');
@@ -412,8 +416,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 								$('<td style="'+st+'" class="top aligned" rowspan="' + parts.length + '">')
 									.append($('<label>' + partition.model + '</label><br /><strong>' + partition.disk_device + '</strong>')),
 								$('<td style="'+st+'" class="center aligned" colspan="4">'),
-								$('<td style="'+st+'">').append($('<label>' + format_size(partition.size) + '</label>')),
-								$('<td style="'+st+'">'),
+								$('<td class="right aligned" style="'+st+'">').append($('<label>' + format_size(partition.size) + '</label>')),
+								$('<td style="'+st+'" colspan="2">'),
 								$('<td style="'+st+'" class="center aligned">').append(menu)
 							));
 						} else {
@@ -421,13 +425,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							if (partition.filesystem_usage && partition.filesystem_usage >= 0) {
 								usage = (parseFloat(partition.filesystem_usage) * 100).toFixed(0) + '%'
 							}
-							$("#volume-info tbody").append($('<tr>').append(
+							var st = (is_sys_partition) ? 'style="font-weight:bolder"' : '';
+							$("#volume-info tbody").append($('<tr '+st+'>').append(
 								$('<td style="border-left: 1px solid rgba(34,36,38,.1)">').append($('<label>' + partition.partition + '</label>')),
 								$('<td>').append($('<label>' + partition.filesystem_type + '</label>')),
 								$('<td>').append($('<label>' + partition.filesystem_label + '</label>')),
 								$('<td>').append($('<label>' + partition.mountpoint + '</label>')),
-								$('<td>').append($('<label>' + format_size(partition.size) + '</label>')),
-								$('<td>').append($('<label>' + usage + '</label>')),
+								$('<td class="right aligned">').append($('<label>' + format_size(partition.size) + '</label>')),
+								$('<td class="right aligned">').append($('<label>' + format_size(partition.filesystem_used) + '</label>')),
+								$('<td class="right aligned">').append($('<label>' + format_size(partition.size-partition.filesystem_used) + '</label>')),
 								$('<td class="center aligned">').append(menu)
 							));
 						}
@@ -647,7 +653,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							filesystem_label: 'Label',
 							mountpoint: 'Mountpoint',
 							size: 'Size',
-							usage: 'Usage',
+							used: 'Used',
+							free: 'Free',
 							use_disk_for_userfs: 'Use whole disk for userfs.',
 							use_partition_for_userfs: 'Use partition for userfs.',
 							move_userfs: 'Move userfs to another device',
@@ -724,7 +731,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							filesystem_label: 'Label',
 							mountpoint: 'Einhängepunkt',
 							size: 'Größe',
-							usage: 'Belegt',
+							used: 'Belegt',
+							free: 'Frei',
 							use_disk_for_userfs: 'Den gesamten Datenträger für das userfs verwenden.',
 							use_partition_for_userfs: 'Die Partition als userfs verwenden.',
 							move_userfs: 'Userfs auf anderen Datenträger verschieben',
@@ -873,8 +881,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						<th data-i18n="filesystem_type"></th>
 						<th data-i18n="filesystem_label"></th>
 						<th data-i18n="mountpoint"></th>
-						<th data-i18n="size"></th>
-						<th data-i18n="usage"></th>
+						<th class="right aligned" data-i18n="size"></th>
+						<th class="right aligned" data-i18n="used"></th>
+						<th class="right aligned" data-i18n="free"></th>
 						<th class="center aligned" data-i18n="action"></th>
 					</tr>
 				</thead>
