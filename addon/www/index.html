@@ -407,7 +407,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						if (partition.partition == 0) {
 							var st = "border:none; border-top: 2px solid #aaafaf";
 							$("#volume-info tbody").append($('<tr style="background: #f8ffff;">').append(
-								$('<td style="'+st+'" class="top aligned" rowspan="' + parts.length + '">').append($('<label>' + partition.disk_device + '</label>')),
+								$('<td style="'+st+'" class="top aligned" rowspan="' + parts.length + '">')
+									.append($('<label>' + partition.model + '</label><br /><strong>' + partition.disk_device + '</strong>')),
 								$('<td style="'+st+'" class="center aligned" colspan="4">'),
 								$('<td style="'+st+'">').append($('<label>' + format_size(partition.size) + '</label>')),
 								$('<td style="'+st+'">'),

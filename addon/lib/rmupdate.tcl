@@ -274,12 +274,15 @@ proc ::rmupdate::get_partitions {{device ""}} {
 		if {[regexp {Disk\s+(\S+):.*\s(\d+)\s+bytes} $d match dev size]} {
 			set partitions(${dev}::0::partition) 0
 			set partitions(${dev}::0::disk_device) $dev
+			set partitions(${dev}::0::model) ""
 			set partitions(${dev}::0::size) $size
 			
 			set data2 ""
 			catch {set data2 [exec /usr/sbin/parted $dev unit B print]}
 			foreach d2 [split $data2 "\n"] {
-				if {[regexp {^\s*(\d)\s+(\d+)B\s+(\d+)B\s+(\d+)B.*} $d2 match num start end size]} {
+				if {[regexp {^Model:\s*(\S.*)\s*$} $d2 match model]} {
+					set partitions(${dev}::0::model) $model
+				} elseif {[regexp {^\s*(\d)\s+(\d+)B\s+(\d+)B\s+(\d+)B.*} $d2 match num start end size]} {
 					set partitions(${dev}::${num}::partition) $num
 					set partitions(${dev}::${num}::disk_device) $dev
 					set part_dev [get_partition_device $dev $num]
