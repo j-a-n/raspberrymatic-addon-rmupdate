@@ -453,12 +453,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					reset_buttons();
 					display_message('success', data, 5000);
 					if (addon_id) {
-						$('#tr-' + addon_id).removeClass('warning');
-						$('#tr-' + addon_id).addClass('positive');
-						$('#button-update-' + addon_id).removeClass('green');
-						$('#button-update-' + addon_id).addClass('gray');
-						$('#button-update-' + addon_id).contents().last()[0].textContent = i18next.t('reinstall');
-						$('#label-version-' + addon_id).text($('#label-available-version-' + addon_id).text());
+						if (addon_id == 'rmupdate') {
+							location.reload();
+						}
+						else {
+							$('#tr-' + addon_id).removeClass('warning');
+							$('#tr-' + addon_id).addClass('positive');
+							$('#button-update-' + addon_id).removeClass('green');
+							$('#button-update-' + addon_id).addClass('gray');
+							$('#button-update-' + addon_id).contents().last()[0].textContent = i18next.t('reinstall');
+							$('#label-version-' + addon_id).text($('#label-available-version-' + addon_id).text());
+						}
 					}
 					else {
 						$('#install-addon-url-input').val('');
