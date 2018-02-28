@@ -402,7 +402,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						var menu = null;
 						if (menu_items.length > 0) {
 							menu = $('<div class="ui compact menu" style="min-height:28px; max-height:28px;">').append(
-								$('<div class="ui dropdown item">').append(
+								$('<div class="ui floating dropdown top right item">').append(
 									i18next.t('action'),
 									$('<i class="dropdown icon">'),
 									$('<div class="menu">').append(menu_items)
@@ -426,11 +426,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 								usage = (parseFloat(partition.filesystem_usage) * 100).toFixed(0) + '%'
 							}
 							var st = (is_sys_partition) ? 'style="font-weight:bolder"' : '';
-							$("#volume-info tbody").append($('<tr '+st+'>').append(
+							$("#volume-info tbody").append($('<tr>').append(
 								$('<td style="border-left: 1px solid rgba(34,36,38,.1)">').append($('<label>' + partition.partition + '</label>')),
 								$('<td>').append($('<label>' + partition.filesystem_type + '</label>')),
-								$('<td>').append($('<label>' + partition.filesystem_label + '</label>')),
-								$('<td>').append($('<label>' + partition.mountpoint + '</label>')),
+								$('<td>').append($('<label '+st+'>' + partition.filesystem_label + '</label>')),
+								$('<td>').append($('<label '+st+'>' + partition.mountpoint + '</label>')),
 								$('<td class="right aligned">').append($('<label>' + format_size(partition.size) + '</label>')),
 								$('<td class="right aligned">').append($('<label>' + format_size(partition.filesystem_used) + '</label>')),
 								$('<td class="right aligned">').append($('<label>' + format_size(partition.size-partition.filesystem_used) + '</label>')),
@@ -844,7 +844,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<div style="position: fixed; left: 50%; top: 2vh; z-index: 2000">
 		<div style="position: relative; left: -50%;">
 			<div class="ui container">
-				<div id="message" class="ui message hidden" style="min-height: 50px; min-width: 340px">
+				<div id="message" class="ui message hidden" style="margin-left: 100px; margin-right: 100px; min-height: 50px; min-width: 340px">
 					<i class="close icon" onclick="clear_message();"></i>
 				</div>
 			</div>
