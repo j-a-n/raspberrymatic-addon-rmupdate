@@ -701,6 +701,26 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 proc ::rmupdate::move_userfs_to_device {target_device {sync_data 0} {repartition 0}} {
 	variable mnt_sys
 	
+	set current [get_current_firmware_version]
+	set versions [list $current "2.31.25.20180226"]
+	set versions [lsort -decreasing -command compare_versions $versions]
+	if {[lindex $versions 0] != $current} {
+		# Old firmware needs udev patch
+		exec /bin/mount -o remount,rw /
+		
+		set fd [open "/lib/udev/rules.d/usbmount.rules" "w"]
+		puts $fd {ENV{ID_FS_LABEL}=="bootfs|rootfs|rootfs1|rootfs2|userfs", GOTO="END"}
+		puts $fd {KERNEL=="sd*", DRIVERS=="sbp2",	 ACTION=="add",	RUN+="/usr/share/usbmount/usbmount add"}
+		puts $fd {KERNEL=="sd*", SUBSYSTEM=="block", ACTION=="add",	RUN+="/usr/share/usbmount/usbmount add"}
+		puts $fd {KERNEL=="ub*", SUBSYSTEM=="block", ACTION=="add",	RUN+="/usr/share/usbmount/usbmount add"}
+		puts $fd {KERNEL=="sd*", ACTION=="remove", RUN+="/usr/share/usbmount/usbmount remove"}
+		puts $fd {KERNEL=="ub*", ACTION=="remove", RUN+="/usr/share/usbmount/usbmount remove"}
+		puts $fd {LABEL="END"}
+		close $fd
+		
+		exec /bin/mount -o remount,ro /
+	}
+	
 	if {![file exists $target_device]} {
 		error [i18n "Target device does not exist."]
 	}
