@@ -375,19 +375,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 										return true;
 									},
 									onApprove: function() {
-										moving_userfs_to_device = true;
 										display_message('warning', i18next.t('moving_userfs'), 300000);
-										rest('POST', '/move_userfs_to_device', JSON.stringify({"target_device":target_device}),
-											function(data) {
-												moving_userfs_to_device = false;
-												display_message('success', i18next.t('userfs_moved'), 120000);
-												rest('POST', '/system_reboot');
-											},
-											function(xhr, ajaxOptions, thrownError) {
-												moving_userfs_to_device = false;
-												default_error_callback(xhr, ajaxOptions, thrownError);
-											}
-										);
+										if (!moving_userfs_to_device) {
+											rest('POST', '/move_userfs_to_device', JSON.stringify({"target_device":target_device}),
+												function(data) {
+													moving_userfs_to_device = false;
+													display_message('success', i18next.t('userfs_moved'), 120000);
+													rest('POST', '/system_reboot');
+												},
+												function(xhr, ajaxOptions, thrownError) {
+													moving_userfs_to_device = false;
+													default_error_callback(xhr, ajaxOptions, thrownError);
+												}
+											);
+										}
+										moving_userfs_to_device = true;
 									}
 								})
 								.modal('show');
