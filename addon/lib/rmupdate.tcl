@@ -743,8 +743,16 @@ proc ::rmupdate::move_userfs_to_device {target_device {sync_data 0} {repartition
 	}
 	
 	if {$target_partition_device == ""} {
+		array set partitions [get_partitions $target_device]
+		set keys [array names partitions]
 		set partition_number 0
 		if {$repartition == 1} {
+			foreach key $keys {
+				regexp {^(.+)::([^:]+)$} $key match id opt
+				if {$opt == "partition_device"} {
+					catch { exec /bin/umount $partitions($key) }
+				}
+			}
 			set exitcode [catch {
 				exec /usr/sbin/parted --script ${target_device} \
 				mklabel msdos \
@@ -755,8 +763,6 @@ proc ::rmupdate::move_userfs_to_device {target_device {sync_data 0} {repartition
 			}
 			set partition_number 1
 		} else {
-			array set partitions [get_partitions $target_device]
-			set keys [array names partitions]
 			foreach key $keys {
 				regexp {^(.+)::([^:]+)$} $key match id opt
 				if {$opt == "filesystem_label"} {
