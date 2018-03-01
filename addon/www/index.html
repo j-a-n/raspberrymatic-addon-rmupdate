@@ -310,7 +310,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		
 		function format_size(size) {
 			if (size < 0) {
-				size = 0;
+				return '';
 			}
 			if (size > 1024 * 1024 * 1024) {
 				return (parseInt(size)/1024/1024/1024).toFixed(1) + ' GB'
@@ -426,14 +426,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 								usage = (parseFloat(partition.filesystem_usage) * 100).toFixed(0) + '%'
 							}
 							var st = (is_sys_partition) ? 'style="font-weight:bolder"' : '';
+							var used = (partition.filesystem_used == -1) ? '' : format_size(partition.filesystem_used);
+							var free = (partition.filesystem_used == -1) ? '' : format_size(partition.size-partition.filesystem_used);
 							$("#volume-info tbody").append($('<tr>').append(
 								$('<td style="border-left: 1px solid rgba(34,36,38,.1)">').append($('<label>' + partition.partition + '</label>')),
 								$('<td>').append($('<label>' + partition.filesystem_type + '</label>')),
 								$('<td>').append($('<label '+st+'>' + partition.filesystem_label + '</label>')),
 								$('<td>').append($('<label '+st+'>' + partition.mountpoint + '</label>')),
 								$('<td class="right aligned">').append($('<label>' + format_size(partition.size) + '</label>')),
-								$('<td class="right aligned">').append($('<label>' + format_size(partition.filesystem_used) + '</label>')),
-								$('<td class="right aligned">').append($('<label>' + format_size(partition.size-partition.filesystem_used) + '</label>')),
+								$('<td class="right aligned">').append($('<label>' + used + '</label>')),
+								$('<td class="right aligned">').append($('<label>' + free + '</label>')),
 								$('<td class="center aligned">').append(menu)
 							));
 						}
