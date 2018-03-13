@@ -1254,8 +1254,9 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 						set addons(${id}::${keyl}) $value
 						if {$keyl == "update" && $fetch_available_version == 1} {
 							catch {
-								set cgi "${addons_www_dir}/[string range $value 8 end]"
-								set available_version [exec tclsh "$cgi"]
+								#set cgi "${addons_www_dir}/[string range $value 8 end]"
+								#set available_version [exec tclsh "$cgi"]
+								set available_version [exec /usr/bin/wget "http://localhost${value}" --quiet --output-document=-]
 								set addons(${id}::available_version) $available_version
 							}
 						}
