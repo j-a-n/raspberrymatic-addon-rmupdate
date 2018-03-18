@@ -245,13 +245,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			$('#dimmer-firmware-info').addClass('active');
 			rest("GET", "/get_firmware_info", null, function(data) {
 				$('#firmware-info tbody').empty();
+				var latest_firmware_supported = false;
 				data.forEach(function(fw) {
-					if (fw.latest) latest_firmware = fw.version;
+					if (fw.latest) {
+						latest_firmware = fw.version;
+						latest_firmware_supported = fw.supported;
+					}
 					if (fw.installed) current_firmware = fw.version;
 					var color = 'yellow';
 					if (fw.latest) color = 'green';
 					if (fw.installed) color = 'gray';
-					var disabled = (fw.image || fw.url ? '' : 'disabled');
+					var disabled = ((fw.image || fw.url) && fw.supported ? '' : 'disabled');
 					var binstall = $('<div class="ui '+ color +' basic '+ disabled +' button">').attr('data-install-firmware-version', fw.version).append($('<i class="sign in icon">'), i18next.t('install'));
 					binstall.click(function() {
 						install_firmware(this.getAttribute('data-install-firmware-version'));
@@ -265,6 +269,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					});
 					
 					var available = (fw.url ? 'checked=""' : '')
+					var supported = (fw.supported ? 'checked=""' : '')
 					var downloaded = (fw.image ? 'checked=""' : '')
 					var cls = '';
 					if (fw.installed) cls = ' class="warning"';
@@ -272,6 +277,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					$("#firmware-info tbody").append($('<tr' + cls + '>').append(
 						$('<td>').append($('<a>', {text: fw.version, title: i18next.t('open_release_info'), href: fw.info_url, target: "_blank"})),
 						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+available+'>'),$('<label></label>'))),
+						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+supported+'>'),$('<label></label>'))),
 						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+downloaded+'>'),$('<label></label>'))),
 						$('<td class="center aligned">').append(bdelete, binstall)
 					));
@@ -285,7 +291,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					$('<div class="ui item">').html(i18next.t('current_installed_version') + ': <span style="color:'+ color +'">' + current_firmware + '</span>'),
 					$('<div class="ui item">').html(i18next.t('latest_available_version') + ': ' + latest_firmware)
 				);
-				if (current_firmware != latest_firmware) {
+				if (latest_firmware_supported && current_firmware != latest_firmware) {
 					$("#firmware-summary").append(
 						$('<div id="install-latest-firmware-button" class="ui green basic button" style="margin-top:20px; margin-bottom:20px;">').click(install_latest_firmware).append($('<i class="sign in icon">'), i18next.t('install_latest_firmware'))
 					);
@@ -670,6 +676,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							loading: 'Loading',
 							version: 'Version',
 							available: 'Available',
+							supported: 'Supported',
 							downloaded: 'Downloaded',
 							action: 'Action',
 							delete_download: 'Delete download',
@@ -748,6 +755,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							loading: 'Lade',
 							version: 'Version',
 							available: 'Verfügbar',
+							supported: 'Unterstützt',
 							downloaded: 'Heruntergeladen',
 							action: 'Aktion',
 							delete_download: 'Download löschen',
@@ -911,6 +919,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					<tr>
 						<th data-i18n="version"></th>
 						<th class="center aligned" data-i18n="available"></th>
+						<th class="center aligned" data-i18n="supported"></th>
 						<th class="center aligned" data-i18n="downloaded"></th>
 						<th class="center aligned" data-i18n="action"></th>
 					</tr>

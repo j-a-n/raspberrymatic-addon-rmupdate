@@ -17,6 +17,7 @@
 #
 
 namespace eval rmupdate {
+	variable support_file_url "https://github.com/j-a-n/raspberrymatic-addon-rmupdate/raw/master/support.json"
 	variable release_url "https://github.com/jens-maus/RaspberryMatic/releases"
 	variable addon_dir "/usr/local/addons/rmupdate"
 	variable rc_dir "/usr/local/etc/config/rc.d"
@@ -958,8 +959,8 @@ proc ::rmupdate::get_current_firmware_version {} {
 
 proc ::rmupdate::get_available_firmware_downloads {} {
 	variable release_url
-	set rpi_version [get_rpi_version]
 	set download_urls [list]
+	set rpi_version [get_rpi_version]
 	set data [exec /usr/bin/wget "${release_url}" --no-check-certificate -q -O-]
 	foreach d [split $data ">"] {
 		set href ""
@@ -1059,6 +1060,14 @@ proc ::rmupdate::get_version_from_filename {filename} {
 
 proc ::rmupdate::get_firmware_info {} {
 	variable release_url
+	variable support_file_url
+	
+	set data [exec /usr/bin/wget "${support_file_url}" --no-check-certificate -q -O-]
+	if { ! [regexp {\"latest_supported_version\"\s*:\s*\"([^\"]+)\"} $data match latest_supported_version] } {
+		write_log 1 "Failed to get latest supported version from ${support_file_url}"
+		return "\[\]"
+	}
+	
 	set current [get_current_firmware_version]
 	set versions [list $current]
 	foreach e [get_available_firmware_downloads] {
@@ -1084,12 +1093,16 @@ proc ::rmupdate::get_firmware_info {} {
 		if {$v == $current} {
 			set installed "true"
 		}
+		set supported "false"
+		if {[compare_versions $latest_supported_version $v] >= 0} {
+			set supported "true"
+		}
 		set image ""
 		catch { set image $images($v) }
 		set url ""
 		catch { set url $downloads($v) }
 		set info_url "${release_url}/tag/${v}"
-		append json "\{\"version\":\"${v}\",\"installed\":${installed},\"latest\":${latest}\,\"url\":\"${url}\"\,\"info_url\":\"${info_url}\",\"image\":\"${image}\"\},"
+		append json "\{\"version\":\"${v}\",\"installed\":${installed},\"latest\":${latest},\"supported\":${supported},\"url\":\"${url}\",\"info_url\":\"${info_url}\",\"image\":\"${image}\"\},"
 		set latest "false"
 	}
 	if {[llength versions] > 0} {
