@@ -116,6 +116,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		
 		function disable_buttons() {
 			$('#install-latest-firmware-button').addClass('disabled');
+			$('#install-firmware-url-button').addClass('disabled');
 			$('[data-install-firmware-version]').addClass('disabled');
 			$('[data-delete-firmware-version]').addClass('disabled');
 			$('[data-update-addon-id]').addClass('disabled');
@@ -127,6 +128,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		function reset_buttons() {
 			$('#install-latest-firmware-button').removeClass('loading');
 			$('#install-latest-firmware-button').removeClass('disabled');
+			$('#install-firmware-url-button').removeClass('loading');
+			$('#install-firmware-url-button').removeClass('disabled');
 			$('[data-install-firmware-version]').removeClass('loading');
 			$('[data-install-firmware-version]').removeClass('disabled');
 			$('[data-delete-firmware-version]').removeClass('disabled');
@@ -212,7 +215,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			);
 		}
 		
-		function install_firmware(version) {
+		function install_firmware(download_url, version) {
 			$('#log-content').html('');
 			$('#install-progress').progress("reset");
 			$('#modal-log').modal('show');
@@ -220,8 +223,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				var reboot = $('#reboot-after-install').is(':checked');
 				var keep_download = ! $('#delete-download-after-install').is(':checked');
 				var dryrun = $('#dryrun').is(':checked');
-				set_running_installation("Firmware " + version);
-				rest("POST", "/start_install_firmware", JSON.stringify({"language": language, "version":version, "reboot":reboot, "dryrun":dryrun, "keep_download": keep_download}),
+				if (version) {
+					set_running_installation("Firmware " + version);
+				}
+				else {
+					set_running_installation("Firmware unknown");
+				}
+				if (!download_url) download_url = "";
+				if (!version) version = "";
+				rest("POST", "/start_install_firmware", JSON.stringify({"download_url": download_url, "version":version, "language": language, "reboot":reboot, "dryrun":dryrun, "keep_download": keep_download}),
 					function(data) {
 						// We are not expecting a response
 					},
@@ -237,7 +247,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		
 		function install_latest_firmware() {
 			if (latest_firmware && latest_firmware != '?') {
-				install_firmware(latest_firmware);
+				install_firmware(null, latest_firmware);
 			}
 		}
 		
@@ -258,7 +268,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					var disabled = ((fw.image || fw.url) && fw.supported ? '' : 'disabled');
 					var binstall = $('<div class="ui '+ color +' basic '+ disabled +' button">').attr('data-install-firmware-version', fw.version).append($('<i class="sign in icon">'), i18next.t('install'));
 					binstall.click(function() {
-						install_firmware(this.getAttribute('data-install-firmware-version'));
+						install_firmware(null, this.getAttribute('data-install-firmware-version'));
 					});
 					var bcls = '';
 					if (!fw.image) bcls = 'disabled';
@@ -808,6 +818,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$('th').localize();
 				$('label').localize();
 				$('#install-addon-url-button').contents().last()[0].textContent = i18next.t('install');
+				$('#install-firmware-url-button').contents().last()[0].textContent = i18next.t('install');
 				$('#install-addon-file-button').contents().last()[0].textContent = i18next.t('choose_addon_file');
 			});
 			var form_config = {
@@ -913,6 +924,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		<div class="dimmable">
 			<div id="dimmer-firmware-info" class="ui active inverted dimmer">
 				<div class="ui loader" data-i18n="loading"></div>
+			</div>
+			<div style="width: 100%" class="ui action input">
+				<input id="install-firmware-url-input" type="text" placeholder="http://.../RaspberryMatic.zip"/>
+				<button id="install-firmware-url-button" class="ui green right labeled icon button" onclick="install_firmware($('#install-firmware-url-input').val());">
+					<i class="sign in icon"></i>
+					install
+				</button>
 			</div>
 			<table id="firmware-info" class="ui celled stackable table">
 				<thead>

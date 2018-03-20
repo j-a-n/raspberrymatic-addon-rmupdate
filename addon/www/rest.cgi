@@ -70,40 +70,37 @@ proc process {} {
 		} elseif {[lindex $path 1] == "get_addon_info"} {
 			return [rmupdate::get_addon_info 1 1 1]
 		} elseif {[lindex $path 1] == "start_install_firmware"} {
-			regexp {\"version\"\s*:\s*\"([\d\.]+)\"} $data match version
+			regexp {\"download_url\"\s*:\s*\"([^\"]*)\"} $data match download_url
+			regexp {\"version\"\s*:\s*\"([\d\.]*)\"} $data match version
 			regexp {\"language\"\s*:\s*\"([^\"]+)\"} $data match lang
 			regexp {\"reboot\"\s*:\s*(true|false)} $data match reboot
 			regexp {\"dryrun\"\s*:\s*(true|false)} $data match dryrun
 			regexp {\"keep_download\"\s*:\s*(true|false)} $data match keep_download
-			if { [info exists version] && $version != "" } {
-				if { ![info exists reboot] } {
-					set reboot "true"
-				}
-				if {$reboot == "true"} {
-					set reboot 1
-				} else {
-					set reboot 0
-				}
-				if { ![info exists dryrun] } {
-					set dryrun "false"
-				}
-				if {$dryrun == "true"} {
-					set dryrun 1
-				} else {
-					set dryrun 0
-				}
-				if { ![info exists keep_download] } {
-					set keep_download "false"
-				}
-				if {$keep_download == "true"} {
-					set keep_download 1
-				} else {
-					set keep_download 0
-				}
-				return "\"[rmupdate::install_firmware_version $version $lang $reboot $keep_download $dryrun]\""
-			} else {
-				error "Invalid version: ${data}"
+			if { ![info exists reboot] } {
+				set reboot "true"
 			}
+			if {$reboot == "true"} {
+				set reboot 1
+			} else {
+				set reboot 0
+			}
+			if { ![info exists dryrun] } {
+				set dryrun "false"
+			}
+			if {$dryrun == "true"} {
+				set dryrun 1
+			} else {
+				set dryrun 0
+			}
+			if { ![info exists keep_download] } {
+				set keep_download "false"
+			}
+			if {$keep_download == "true"} {
+				set keep_download 1
+			} else {
+				set keep_download 0
+			}
+			return "\"[rmupdate::install_firmware $download_url $version $lang $reboot $keep_download $dryrun]\""
 		} elseif {[lindex $path 1] == "install_addon"} {
 			regexp {\"addon_id\"\s*:\s*\"([^\"]+)\"} $data match addon_id
 			if { ![info exists addon_id] } {

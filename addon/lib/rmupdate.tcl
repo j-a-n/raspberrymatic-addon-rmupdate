@@ -993,17 +993,22 @@ proc ::rmupdate::get_latest_firmware_version {} {
 	return [lindex $versions 0]
 }
 
-proc ::rmupdate::download_firmware {version} {
+proc ::rmupdate::download_firmware {{download_url ""} {version ""}} {
 	variable img_dir
 	variable install_log
 	
-	set image_file "${img_dir}/RaspberryMatic-${version}.img"
-	set download_url ""
-	foreach e [get_available_firmware_downloads] {
-		set v [get_version_from_filename $e]
-		if {$v == $version} {
-			set download_url $e
-			break
+	if {$version == ""} {
+		set image_file "${img_dir}/RaspberryMatic-${version}.img"
+	} else {
+		set image_file "${img_dir}/RaspberryMatic-unknown.img"
+	}
+	if {$download_url == ""} {
+		foreach e [get_available_firmware_downloads] {
+			set v [get_version_from_filename $e]
+			if {$v == $version} {
+				set download_url $e
+				break
+			}
 		}
 	}
 	if {$download_url == ""} {
@@ -1038,6 +1043,9 @@ proc ::rmupdate::download_firmware {version} {
 	exec /usr/bin/unzip "${archive_file}" "${img_file}" -o -d "${img_dir}" 2>/dev/null
 	set img_file "${img_dir}/${img_file}"
 	#puts "${img_file} ${image_file}"
+	if {$version == ""} {
+		set image_file $img_file
+	}
 	if {$img_file != $image_file} {
 		file rename $img_file $image_file
 	}
@@ -1174,9 +1182,11 @@ proc ::rmupdate::delete_firmware_image {version} {
 	catch { eval {file delete [glob "${img_dir}/*${version}*.zip"]} }
 }
 
-proc ::rmupdate::install_firmware_version {version lang {reboot 1} {keep_download 0} {dryrun 0}} {
+proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reboot 1} {keep_download 0} {dryrun 0}} {
 	variable language
-	set language $lang
+	if {$lang != ""} {
+		set language $lang
+	}
 	if {[get_running_installation] != ""} {
 		error [i18n "Another install process is running."]
 	}
@@ -1184,19 +1194,23 @@ proc ::rmupdate::install_firmware_version {version lang {reboot 1} {keep_downloa
 		error [i18n "System not upgradeable."]
 	}
 	
-	set_running_installation "Firmware ${version}"
-	
 	set firmware_image ""
-	
-	foreach e [get_available_firmware_images] {
-		set v [get_version_from_filename $e]
-		if {$v == $version} {
-			set firmware_image $e
-			break
+	if {$version == ""} {
+		set_running_installation "Firmware unknown"
+		set keep_download 0
+	} else {
+		set_running_installation "Firmware ${version}"
+		foreach e [get_available_firmware_images] {
+			set v [get_version_from_filename $e]
+			if {$v == $version} {
+				set firmware_image $e
+				break
+			}
 		}
 	}
+	
 	if {$firmware_image == ""} {
-		set firmware_image [download_firmware $version]
+		set firmware_image [download_firmware $download_url $version]
 	}
 	
 	get_system_device
@@ -1221,8 +1235,9 @@ proc ::rmupdate::install_firmware_version {version lang {reboot 1} {keep_downloa
 }
 
 proc ::rmupdate::install_latest_version {{reboot 1} {dryrun 0}} {
+	variable language
 	set latest_version [get_latest_firmware_version]
-	return install_firmware_version $latest_version $reboot $dryrun
+	return install_firmware "" $latest_version $language $reboot $dryrun
 }
 
 proc ::rmupdate::is_firmware_up_to_date {} {
