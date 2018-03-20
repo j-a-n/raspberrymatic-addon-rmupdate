@@ -1197,7 +1197,6 @@ proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reb
 	set firmware_image ""
 	if {$version == ""} {
 		set_running_installation "Firmware unknown"
-		set keep_download 0
 	} else {
 		set_running_installation "Firmware ${version}"
 		foreach e [get_available_firmware_images] {
@@ -1217,7 +1216,9 @@ proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reb
 	check_sizes $firmware_image
 	update_filesystems $firmware_image $dryrun
 	
-	if {!$keep_download && !$dryrun} {
+	if {$version == ""} {
+		file delete $firmware_image
+	} elseif {!$keep_download && !$dryrun} {
 		file delete $firmware_image
 	}
 	
