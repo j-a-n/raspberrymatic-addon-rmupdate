@@ -951,7 +951,11 @@ proc ::rmupdate::clone_system {target_device {activate_clone 0}} {
 }
 
 proc ::rmupdate::get_current_firmware_version {} {
-	set fp [open "/boot/VERSION" r]
+	if {[file exists "/VERSION"]} {
+		set fp [open "/VERSION" r]
+	} else {
+		set fp [open "/boot/VERSION" r]
+	}
 	set data [read $fp]
 	close $fp
 	regexp {\s*VERSION\s*=s*([\d\.]+)\s*$} $data match current_version
