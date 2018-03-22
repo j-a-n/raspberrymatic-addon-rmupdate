@@ -444,6 +444,19 @@ proc ::rmupdate::update_cmdline {cmdline root} {
 	close $fd
 }
 
+proc ::rmupdate::update_boot_cmd {boot_cmd root} {
+	set fd [open $boot_cmd r]
+	set data [read $fd]
+	close $fd
+	
+	regsub -all "setenv rootfs \[0-9\]" $data "setenv rootfs ${root}" data
+	regsub -all "setenv userfs \[0-9\]" $data "setenv userfs 4" data
+	
+	set fd [open $boot_cmd w]
+	puts $fd $data
+	close $fd
+}
+
 proc ::rmupdate::get_system_device {} {
 	set cmdline "/proc/cmdline"
 	set fd [open $cmdline r]
@@ -688,9 +701,11 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 					set new_root_partition_number 3
 				}
 				set part_uuid [get_part_uuid $sys_dev $new_root_partition_number]
-				if { [get_rpi_version] == "tinkerboard" } {
+				if {[file exists "${mnt_s}/boot.cmd"]} {
+					update_boot_cmd "${mnt_s}/boot.cmd" $new_root_partition_number
+				} elseif {[file exists "${mnt_s}/extlinux/extlinux.conf"]} {
 					update_cmdline "${mnt_s}/extlinux/extlinux.conf" "PARTUUID=${part_uuid}"
-				} else {
+				} elseif {[file exists "${mnt_s}/cmdline.txt"]} {
 					update_cmdline "${mnt_s}/cmdline.txt" "PARTUUID=${part_uuid}"
 				}
 			}
