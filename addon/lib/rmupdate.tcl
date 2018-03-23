@@ -444,15 +444,15 @@ proc ::rmupdate::update_cmdline {cmdline root} {
 	close $fd
 }
 
-proc ::rmupdate::update_boot_cmd {boot_cmd root} {
-	set fd [open $boot_cmd r]
+proc ::rmupdate::update_boot_scr {boot_scr root} {
+	set fd [open $boot_scr r]
 	set data [read $fd]
 	close $fd
 	
 	regsub -all "setenv rootfs \[0-9\]" $data "setenv rootfs ${root}" data
 	regsub -all "setenv userfs \[0-9\]" $data "setenv userfs 4" data
 	
-	set fd [open $boot_cmd w]
+	set fd [open $boot_scr w]
 	puts $fd $data
 	close $fd
 }
@@ -701,8 +701,8 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 					set new_root_partition_number 3
 				}
 				set part_uuid [get_part_uuid $sys_dev $new_root_partition_number]
-				if {[file exists "${mnt_s}/boot.cmd"]} {
-					update_boot_cmd "${mnt_s}/boot.cmd" $new_root_partition_number
+				if {[file exists "${mnt_s}/boot.scr"]} {
+					update_boot_scr "${mnt_s}/boot.scr" $new_root_partition_number
 				} elseif {[file exists "${mnt_s}/extlinux/extlinux.conf"]} {
 					update_cmdline "${mnt_s}/extlinux/extlinux.conf" "PARTUUID=${part_uuid}"
 				} elseif {[file exists "${mnt_s}/cmdline.txt"]} {
