@@ -1072,6 +1072,7 @@ proc ::rmupdate::download_firmware {{download_url ""} {version ""}} {
 		}
 		exec /usr/bin/unzip "${archive_file}" "${img_file}" -o -d "${img_dir}" 2>/dev/null
 		set img_file "${img_dir}/${img_file}"
+		file delete $archive_file
 	} else {
 		set img_file $archive_file
 	}
@@ -1082,7 +1083,6 @@ proc ::rmupdate::download_firmware {{download_url ""} {version ""}} {
 	if {$img_file != $image_file} {
 		file rename $img_file $image_file
 	}
-	file delete $archive_file
 	return $image_file
 }
 
