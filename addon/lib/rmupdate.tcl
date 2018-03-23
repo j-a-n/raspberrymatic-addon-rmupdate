@@ -446,6 +446,7 @@ proc ::rmupdate::update_cmdline {cmdline root} {
 
 proc ::rmupdate::update_boot_scr {boot_scr root} {
 	set fd [open $boot_scr r]
+	fconfigure $fd -translation binary
 	set data [read $fd]
 	close $fd
 	
@@ -453,6 +454,7 @@ proc ::rmupdate::update_boot_scr {boot_scr root} {
 	regsub -all "setenv userfs \[0-9\]" $data "setenv userfs 4" data
 	
 	set fd [open $boot_scr w]
+	fconfigure $fd -translation binary
 	puts $fd $data
 	close $fd
 }
