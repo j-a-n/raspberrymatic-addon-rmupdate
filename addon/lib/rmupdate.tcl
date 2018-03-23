@@ -1217,8 +1217,8 @@ proc ::rmupdate::delete_firmware_image {version} {
 
 proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reboot 1} {keep_download 0} {dryrun 0}} {
 	variable language
-	if {$lang != ""} {
-		set language $lang
+	if {[regexp {^([a-z]][a-z])} $lang match l]} {
+		set language [string tolower $l]
 	}
 	if {[get_running_installation] != ""} {
 		error [i18n "Another install process is running."]
@@ -1226,7 +1226,7 @@ proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reb
 	if {! [is_system_upgradeable]} {
 		error [i18n "System not upgradeable."]
 	}
-
+	
 	set firmware_image ""
 	if {$version == ""} {
 		set_running_installation "Firmware unknown"
