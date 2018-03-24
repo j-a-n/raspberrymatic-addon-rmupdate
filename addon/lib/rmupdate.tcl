@@ -460,7 +460,11 @@ proc ::rmupdate::update_boot_scr {boot_scr root} {
 	puts $fd $data
 	close $fd
 
-	exec /usr/bin/mkimage -C none -A arm -T script -d $boot_script $boot_scr
+	set mkimage "/tmp/mkimage"
+	if {![file exists $mkimage]} {
+		set mkimage "/usr/bin/mkimage"
+	}
+	exec $mkimage -C none -A arm -T script -d $boot_script $boot_scr
 
 	file delete $boot_script
 }
@@ -701,6 +705,12 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 			write_log 4 [exec ls -la ${mnt_img}]
 			write_log 4 "ls -la ${mnt_s}"
 			write_log 4 [exec ls -la ${mnt_s}]
+		}
+
+		if {$img_partition == 2} {
+			if {![file exists "/usr/bin/mkimage"] && [file exists "${mnt_s}/usr/bin/mkimage"]} {
+				file copy -force ${mnt_s}/usr/bin/mkimage /tmp/mkimage
+			}
 		}
 
 		if {$img_partition == 1} {
