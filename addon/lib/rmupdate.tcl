@@ -1126,7 +1126,9 @@ proc ::rmupdate::get_firmware_info {} {
 		set version [get_version_from_filename $e]
 		set downloads($version) $e
 		if {[lsearch $versions $version] == -1} {
-			lappend versions $version
+			if {$version != "unknown"} {
+				lappend versions $version
+			}
 		}
 	}
 	foreach e [get_available_firmware_images] {
@@ -1137,7 +1139,7 @@ proc ::rmupdate::get_firmware_info {} {
 		}
 	}
 	set versions [lsort -decreasing -command compare_versions $versions]
-
+	
 	set json "\["
 	set latest "true"
 	foreach v $versions {
@@ -1528,6 +1530,8 @@ proc ::rmupdate::install_addon {{addon_id ""} {download_url ""}} {
 
 proc ::rmupdate::wlan_scan {{as_json 0} {device "wlan0"}} {
 	array set ssids {}
+	catch { exec rfkill unblock 0 }
+	catch { exec rfkill unblock 1 }
 	set data [exec /usr/sbin/iw $device scan]
 	set cur_ssid ""
 	set cur_signal ""
