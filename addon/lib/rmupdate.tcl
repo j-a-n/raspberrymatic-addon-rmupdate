@@ -1037,9 +1037,9 @@ proc ::rmupdate::download_firmware {{download_url ""} {version ""}} {
 	variable install_log
 
 	if {$version == ""} {
-		set image_file "${img_dir}/RaspberryMatic-${version}.img"
-	} else {
 		set image_file "${img_dir}/RaspberryMatic-unknown.img"
+	} else {
+		set image_file "${img_dir}/RaspberryMatic-${version}.img"
 	}
 	if {$download_url == ""} {
 		foreach e [get_available_firmware_downloads] {
