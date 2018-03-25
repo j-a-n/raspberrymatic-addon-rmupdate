@@ -60,6 +60,9 @@ touch "${CONFIG_DIR}/hm_addons.cfg"
 chmod 755 ${ADDON_DIR}/update_addon
 ${ADDON_DIR}/update_addon ${ADDON_NAME} "${ADDON_DIR}/etc/${ADDON_NAME}-addon.cfg"
 
+echo "cleanup" >>$LOG_FILE
+[ -e "${ADDON_DIR}/var/img/RaspberryMatic-unknown.img" ] && rm "${ADDON_DIR}/var/img/RaspberryMatic-unknown.img"
+
 sync
 
 if [ "$1" = "" ]; then
