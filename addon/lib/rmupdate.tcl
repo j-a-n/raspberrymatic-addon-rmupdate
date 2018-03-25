@@ -1133,9 +1133,11 @@ proc ::rmupdate::get_firmware_info {} {
 	}
 	foreach e [get_available_firmware_images] {
 		set version [get_version_from_filename $e]
-		set images($version) $e
-		if {[lsearch $versions $version] == -1} {
-			lappend versions $version
+		if {$version != "unknown"} {
+			set images($version) $e
+			if {[lsearch $versions $version] == -1} {
+				lappend versions $version
+			}
 		}
 	}
 	set versions [lsort -decreasing -command compare_versions $versions]
