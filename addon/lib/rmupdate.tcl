@@ -1377,35 +1377,46 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 									set best_href ""
 									regsub -all {\.} $available_version "\\." regex_version
 									set regex_version "\[^\\d\]\[\\.\\-\\_v\]${regex_version}\[\\.\\-\\_\]\[^\\d\]"
-									foreach d [split $data3 ">"] {
-										set href ""
-										regexp {<\s*a\s+href\s*=\s*"([^"]+\.tar.gz)"} $d match href
-										if { [info exists href] && $href != ""} {
-											set prio 0
-											if {$best_prio == 0} {
-												# First link on page
-												set prio [expr {$prio + 1}]
+									
+									regsub -all {\n+} $data3 "" oneline
+									regsub -all {<a} $oneline "\n<a" alines
+									foreach d [split $alines "\n"] {
+										if {[regexp {<a[^>]+\shref\s*=\s*"([^"]+)"[^>]*>([^>]*)<} $d match href text]} {
+											set filename ""
+											if {[regexp {\s*(\S.+\.tar.gz)\s*} $href match fn]} {
+												set filename $fn
+											} elseif {[regexp {\s*(\S.+\.tar.gz)\s*} $text match fn]} {
+												set filename $fn
 											}
-											regexp $regex_version $href m v
-											if { [info exists m] } {
-												# version match
-												set prio [expr {$prio + 3}]
-												unset m
+											if {$filename != ""} {
+												set prio 0
+												if {$best_prio == 0} {
+													# First link on page
+													set prio [expr {$prio + 1}]
+												}
+												regexp $regex_version $filename m v
+												if { [info exists m] } {
+													# version match
+													set prio [expr {$prio + 3}]
+													unset m
+												}
+												if {[string first "download" $filename] > -1} {
+													set prio [expr {$prio + 2}]
+												}
+												if {[string first "ccurm" $filename] > -1} {
+													set prio [expr {$prio + 2}]
+												}
+												if {$prio > $best_prio} {
+													set best_prio $prio
+													set best_href $href
+												}
+												write_log 4 "Link found: filename=\"${filename}\" href=\"${href}\" prio=\"${prio}\""
 											}
-											if {[string first "download" $href] > -1} {
-												set prio [expr {$prio + 2}]
-											}
-											if {[string first "ccurm" $href] > -1} {
-												set prio [expr {$prio + 2}]
-											}
-											if {$prio > $best_prio} {
-												set best_prio $prio
-												set best_href $href
-											}
-											write_log 4 "Href found: ${href} (prio=${prio})"
 										}
 									}
 									if {$best_href != ""} {
+										regsub {\?.*} $download_url "" noquery
+										regsub {/[^/]+$} $noquery "" base_url
 										set tmp2 [split $download_url "/"]
 										if {[string first "http://" $best_href] == 0} {
 											# absolute link
@@ -1414,7 +1425,8 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 										} elseif {[string first "/" $best_href] == 0} {
 											set best_href "[lindex $tmp2 0]//[lindex $tmp2 2]${best_href}"
 										} else {
-											set best_href "${download_url}/${best_href}"
+											regsub {^./} $best_href "" best_href
+											set best_href "${base_url}/${best_href}"
 										}
 										write_log 3 "Download url for addon ${addon_id}: ${best_href}"
 										set addons(${addon_id}::download_url) $best_href
@@ -1640,3 +1652,4 @@ proc ::rmupdate::wlan_disconnect {} {
 #puts [array_to_json [rmupdate::get_partitions]]
 #rmupdate::move_userfs_to_device /dev/sda1 1 0
 #puts [rmupdate::get_mounted_device "/usr/local"]
+#rmupdate::get_addon_info 1 1 0 "cuxdaemon"
