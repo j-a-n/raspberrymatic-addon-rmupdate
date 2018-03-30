@@ -138,8 +138,8 @@ proc ::rmupdate::get_rpi_version {} {
 	set revision_map(1a01041) "rpi3"
 	set revision_map(a020d3)  "rpi3"
 
-	set fp [open /proc/cpuinfo r]
-	set data [read $fp]
+	set fd [open /proc/cpuinfo r]
+	set data [read $fd]
 	close $fd
 	foreach d [split $data "\n"] {
 		regexp {^Hardware\s*:\s*(\S+)} $d match hardware
