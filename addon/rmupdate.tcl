@@ -25,11 +25,12 @@ proc usage {} {
 	puts stderr "usage: ${argv0} <module> <command>"
 	puts stderr ""
 	puts stderr "possible commands:"
-	puts stderr "  firmware show_current      : show current firmware version"
-	puts stderr "  firmware show_latest       : show latest available firmware version"
-	puts stderr "  firmware install_latest    : install latest available firmware version"
-	puts stderr "  firmware install <version> : install firmware VERSION"
-	puts stderr "  addons list                : list installed addons and versions"
+	puts stderr "  firmware show_current         : show current firmware version"
+	puts stderr "  firmware show_latest          : show latest available firmware version"
+	puts stderr "  firmware install_latest       : install latest available firmware version"
+	puts stderr "  firmware install <version>    : install firmware VERSION"
+	puts stderr "  addons list                   : list installed addons and versions"
+	puts stderr "  system clone <target-device>  : clone system to TARGET-DEVICE"
 }
 
 proc main {} {
@@ -73,6 +74,14 @@ proc main {} {
 			usage
 			exit 1
 		}
+	} elseif {$mod == "system"} {
+		if {$cmd == "clone"} {
+			set target_device [lindex $argv 2]
+			rmupdate::clone_system $target_device 1
+			puts "System cloned to ${target_device}, shutting down"
+			exec /sbin/poweroff
+		}
+		
 	} else {
 		usage
 		exit 1
