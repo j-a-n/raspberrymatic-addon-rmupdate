@@ -474,21 +474,23 @@ proc ::rmupdate::get_system_device {} {
 	set fd [open $cmdline r]
 	set data [read $fd]
 	close $fd
+	# Default
+	set sys_dev "/dev/mmcblk0"
 	foreach d [split $data "\n"] {
 		if { [regexp {root=PARTUUID=(\S+)} $d match partuuid] } {
 			catch {
 				set x [file readlink "/dev/disk/by-partuuid/${partuuid}"]
 				if { [regexp {(mmcblk.*)p\d} [file tail $x] match device] } {
 					set sys_dev "/dev/${device}"
-					return $sys_dev
+					break
 				} elseif { [regexp {(.*)\d} [file tail $x] match device] } {
 					set sys_dev "/dev/${device}"
-					return $sys_dev
+					break
 				}
 			}
 		}
 	}
-	return "/dev/mmcblk0"
+	return $sys_dev
 }
 
 proc ::rmupdate::get_mounted_device {mountpoint} {
@@ -1653,3 +1655,5 @@ proc ::rmupdate::wlan_disconnect {} {
 #rmupdate::move_userfs_to_device /dev/sda1 1 0
 #puts [rmupdate::get_mounted_device "/usr/local"]
 #rmupdate::get_addon_info 1 1 0 "cuxdaemon"
+#puts [rmupdate::get_system_device]
+
