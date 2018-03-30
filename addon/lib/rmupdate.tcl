@@ -18,6 +18,7 @@
 
 namespace eval rmupdate {
 	variable support_file_url "https://github.com/j-a-n/raspberrymatic-addon-rmupdate/raw/master/support.json"
+	variable raspi_fw_url "https://github.com/raspberrypi/firmware/raw/master"
 	variable release_url "https://github.com/jens-maus/RaspberryMatic/releases"
 	variable addon_dir "/usr/local/addons/rmupdate"
 	variable rc_dir "/usr/local/etc/config/rc.d"
@@ -139,6 +140,7 @@ proc ::rmupdate::get_rpi_version {} {
 
 	set fp [open /proc/cpuinfo r]
 	set data [read $fp]
+	close $fd
 	foreach d [split $data "\n"] {
 		regexp {^Hardware\s*:\s*(\S+)} $d match hardware
 		if { [info exists hardware] && $hardware == "Rockchip" } {
@@ -440,7 +442,7 @@ proc ::rmupdate::update_cmdline {cmdline root} {
 	regsub -all "root=\[a-zA-Z0-9\=/\-\]+ " $data "root=${root} " data
 
 	set fd [open $cmdline w]
-	puts $fd $data
+	puts -nonewline $fd $data
 	close $fd
 }
 
@@ -457,7 +459,7 @@ proc ::rmupdate::update_boot_scr {boot_scr root} {
 	regsub -all "setenv userfs \[0-9\]" $data "setenv userfs 4" data
 
 	set fd [open $boot_script w]
-	puts $fd $data
+	puts -nonewline $fd $data
 	close $fd
 
 	set mkimage "/tmp/mkimage"
@@ -544,7 +546,7 @@ proc ::rmupdate::update_fstab {fstab {boot ""} {root ""} {user ""}} {
 	close $fd
 
 	set fd [open $fstab w]
-	puts $fd $ndata
+	puts -nonewline $fd $ndata
 	close $fd
 }
 
@@ -1627,6 +1629,35 @@ proc ::rmupdate::wlan_disconnect {} {
 	catch { exec /sbin/ifup wlan0 }
 }
 
+proc ::rmupdate::set_camera_active {active} {
+	variable raspi_fw_url
+	
+	catch { exec /bin/mount -o remount,rw "/boot" }
+	
+	set fd [open /boot/config.txt r]
+	set data [read $fd]
+	close $fd
+	
+	regsub -all "\[^\n\]*start_x\s*=\[^\n\]*\n" $data "" data
+	if {$active == 1} {
+		foreach fn [list /boot/start_x.elf /boot/fixup_x.dat] {
+			if {![file exists $fn]} {
+				exec wget --quiet "${raspi_fw_url}${fn}" -O "${fn}"
+			}
+		}
+		regsub -line "gpu_mem\s*=.*$" $data "gpu_mem=128" data
+		set data "${data}start_x=1\n"
+	} else {
+		regsub -line "gpu_mem\s*=.*$" $data "gpu_mem=32" data
+	}
+	
+	set fd [open /boot/config.txt w]
+	puts -nonewline $fd $data
+	close $fd
+	
+	catch { exec /bin/mount -o remount,ro "/boot" }
+}
+
 #puts [rmupdate::get_latest_firmware_version]
 #puts [rmupdate::get_firmware_info]
 #puts [rmupdate::get_available_firmware_images]
@@ -1656,4 +1687,4 @@ proc ::rmupdate::wlan_disconnect {} {
 #puts [rmupdate::get_mounted_device "/usr/local"]
 #rmupdate::get_addon_info 1 1 0 "cuxdaemon"
 #puts [rmupdate::get_system_device]
-
+#rmupdate::set_camera_active 1
