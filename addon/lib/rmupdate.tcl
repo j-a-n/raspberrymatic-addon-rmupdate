@@ -395,6 +395,7 @@ proc ::rmupdate::get_partion_start_end_and_size {device partition} {
 
 proc ::rmupdate::delete_partition_table {device} {
 	exec /bin/dd if=/dev/zero of=$device bs=512 count=1 2>/dev/null
+	catch { exec /usr/sbin/partprobe }
 }
 
 proc ::rmupdate::is_system_upgradeable {} {
