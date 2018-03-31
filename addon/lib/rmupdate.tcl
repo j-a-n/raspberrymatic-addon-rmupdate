@@ -1553,9 +1553,9 @@ proc ::rmupdate::install_addon {{addon_id ""} {download_url ""}} {
 
 proc ::rmupdate::wlan_scan {{as_json 0} {device "wlan0"}} {
 	array set ssids {}
-	catch { exec rfkill unblock 0 }
-	catch { exec rfkill unblock 1 }
-	catch { exec ip link set $device up }
+	catch { exec /usr/sbin/rfkill unblock 0 }
+	catch { exec /usr/sbin/rfkill unblock 1 }
+	catch { exec /sbin/ip link set $device up }
 	set data [exec /usr/sbin/iw $device scan]
 	set cur_ssid ""
 	set cur_signal ""
