@@ -393,6 +393,10 @@ proc ::rmupdate::get_partion_start_end_and_size {device partition} {
 	return $res
 }
 
+proc ::rmupdate::delete_partition_table {device} {
+	exec /bin/dd if=/dev/zero of=$device bs=512 count=1 2>/dev/null
+}
+
 proc ::rmupdate::is_system_upgradeable {} {
 	set sys_dev [get_system_device]
 	#if { [get_filesystem_label $sys_dev 2] != "rootfs1" } {

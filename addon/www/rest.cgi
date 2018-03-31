@@ -61,6 +61,10 @@ proc process {} {
 		} elseif {[lindex $path 1] == "move_userfs_to_device"} {
 			regexp {\"target_device\"\s*:\s*\"([^\"]+)\"} $data match target_device
 			return [rmupdate::move_userfs_to_device $target_device 1 1]
+		} elseif {[lindex $path 1] == "delete_partition_table"} {
+			regexp {\"device\"\s*:\s*\"([^\"]+)\"} $data match device
+			rmupdate::delete_partition_table $device
+			return "\"deleted\""
 		} elseif {[lindex $path 1] == "system_reboot"} {
 			exec /sbin/reboot
 			return "\"reboot initiated\""

@@ -414,6 +414,30 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 								})
 								.modal('show');
 							}));
+							
+							if (partition.partition == 0) {
+								menu_items.push($('<a class="item">').append(i18next.t('delete_partition_table')).attr('data-device', device).click(function() {
+									var device = this.getAttribute('data-device');
+									$('#modal-delete-partition-table').modal({
+										onDeny: function() {
+											return true;
+										},
+										onApprove: function() {
+											rest('POST', '/delete_partition_table', JSON.stringify({"device":device}),
+												function(data) {
+													display_message('success', i18next.t('partiton_table_deleted'), 120000);
+													get_partitions();
+												},
+												function(xhr, ajaxOptions, thrownError) {
+													default_error_callback(xhr, ajaxOptions, thrownError);
+													get_partitions();
+												}
+											);
+										}
+									})
+									.modal('show');
+								}));
+							}
 						}
 						var menu = null;
 						if (menu_items.length > 0) {
@@ -680,6 +704,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							move: 'Move',
 							moving_userfs: 'Moving userfs, please wait, this will take a while...',
 							userfs_moved: 'Userfs moved, system will reboot now.',
+							delete_partition_table: 'Delete partition table.',
+							sure_to_delete_partition_table: 'Are you sure you want to delete the partition table?',
+							delete: 'Delete',
+							partiton_table_deleted: 'Partiton table deleted.',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Current installed version',
 							latest_available_version: 'Latest available version',
@@ -759,6 +787,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							move: 'Verschieben',
 							moving_userfs: 'Verschiebe userfs, bitte warten, dies kann einige Zeit dauern...',
 							userfs_moved: 'Userfs wurde verschoben, das System wird neu gestartet.',
+							delete_partition_table: 'Partitionstabelle löschen.',
+							sure_to_delete_partition_table: 'Soll die Partitionstabelle wirklich gelöscht werden?',
+							delete: 'Löschen',
+							partiton_table_deleted: 'Partitionstabelle gelöscht.',
 							firmwares: 'Firmwares',
 							current_installed_version: 'Momentan installierte Version',
 							latest_available_version: 'Aktuellste verfügbare Version',
@@ -1092,6 +1124,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			<div data-i18n="cancel" class="ui gray basic cancel inverted button">
 			</div>
 			<div data-i18n="move" class="ui red approve inverted button">
+			</div>
+		</div>
+	</div>
+	
+	<div id="modal-delete-partition-table" class="ui small basic modal transition scrolling">
+		<div data-i18n="delete_partition_table" class="header"></div>
+		<div class="content">
+			<p data-i18n="sure_to_delete_partition_table"></p>
+		</div>
+		<div class="actions">
+			<div data-i18n="cancel" class="ui gray basic cancel inverted button">
+			</div>
+			<div data-i18n="delete" class="ui red approve inverted button">
 			</div>
 		</div>
 	</div>
