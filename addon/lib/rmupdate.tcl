@@ -1367,6 +1367,10 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 					write_log 4 "Response: ${data}"
 					regexp {url=([^\s\"\']+)} $data match download_url
 					if { [info exists download_url] } {
+						if {$addon_id == "cuxdaemon" && [compare_versions $addons(cuxdaemon::version) "2.0"] < 0} {
+							# URL has changed with version 2.0.0
+							set download_url "https://homematic-forum.de/forum/viewtopic.php?f=37&t=15298#p121165"
+						}
 						write_log 4 "Extracted url from response: ${download_url}"
 						set data2 ""
 						catch {
