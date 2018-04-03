@@ -1394,11 +1394,11 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 									regsub -all {\n+} $data3 "" oneline
 									regsub -all {<a} $oneline "\n<a" alines
 									foreach d [split $alines "\n"] {
-										if {[regexp {<a[^>]+\shref\s*=\s*"([^"]+)"[^>]*>([^>]*)<} $d match href text]} {
+										if {[regexp {<a[^>]*\shref\s*=\s*"([^"]+)"[^>]*>(.*)</a} $d match href text]} {
 											set filename ""
 											if {[regexp {\s*(\S.+\.tar.gz)\s*} $href match fn]} {
 												set filename $fn
-											} elseif {[regexp {\s*(\S.+\.tar.gz)\s*} $text match fn]} {
+											} elseif {[regexp {([^\s>]+\.tar.gz)\s*} $text match fn]} {
 												set filename $fn
 											}
 											if {$filename != ""} {
