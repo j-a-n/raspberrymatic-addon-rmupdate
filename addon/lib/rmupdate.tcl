@@ -1554,13 +1554,49 @@ proc ::rmupdate::install_addon {{addon_id ""} {download_url ""}} {
 	return [format [i18n "Addon %s successfully installed."] $addon_id]
 }
 
+proc ::rmupdate::wlan_get_blocked {{device "wlan0"}} {
+	set data [exec /usr/sbin/rfkill]
+	foreach d [split $data "\n"] {
+		if { [regexp {^\s*(\d+)\s+(\S+)\s+\S+(\d+)\s+(\S+)\s+(\S+)\s*$} $d match id type num soft hard] } {
+			if {"${type}${num}" == $device} {
+				if {$soft == "blocked"} {
+					return 1
+				} else {
+					return 0
+				}
+			}
+		}
+	}
+}
+
+proc ::rmupdate::wlan_set_blocked {block {device "wlan0"}} {
+	set data [exec /usr/sbin/rfkill]
+	foreach d [split $data "\n"] {
+		if { [regexp {^\s*(\d+)\s+(\S+)\s+\S+(\d+)\s+(\S+)\s+(\S+)\s*$} $d match id type num soft hard] } {
+			if {"${type}${num}" == $device} {
+				if {$soft == "blocked" && $block == 0} {
+					write_log 4 "Unblock ${device} (${id})"
+					catch { exec /usr/sbin/rfkill unblock $id }
+				} elseif {$soft == "unblocked" && $block == 1} {
+					write_log 4 "Block ${device} (${id})"
+					catch { exec /usr/sbin/rfkill block $id }
+				}
+			}
+		}
+	}
+}
 
 proc ::rmupdate::wlan_scan {{as_json 0} {device "wlan0"}} {
 	array set ssids {}
-	catch { exec /usr/sbin/rfkill unblock 0 }
-	catch { exec /usr/sbin/rfkill unblock 1 }
+	set blocked [wlan_get_blocked $device]
+	if {$blocked == 1} {
+		wlan_set_blocked 0 $device
+	}
 	catch { exec /sbin/ip link set $device up }
 	set data [exec /usr/sbin/iw $device scan]
+	if {$blocked == 1} {
+		wlan_set_blocked 1 $device
+	}
 	set cur_ssid ""
 	set cur_signal ""
 	set cur_connected 0
@@ -1598,6 +1634,7 @@ proc ::rmupdate::wlan_scan {{as_json 0} {device "wlan0"}} {
 }
 
 proc ::rmupdate::wlan_connect {ssid {password ""}} {
+	wlan_set_blocked 0
 	set psk ""
 	if {$password != ""} {
 		set data [exec /usr/sbin/wpa_passphrase $ssid $password]
@@ -1698,3 +1735,4 @@ proc ::rmupdate::set_camera_active {active} {
 #rmupdate::get_addon_info 1 1 0 "cuxdaemon"
 #puts [rmupdate::get_system_device]
 #rmupdate::set_camera_active 1
+#rmupdate::wlan_block 0
