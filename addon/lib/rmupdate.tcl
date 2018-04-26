@@ -98,6 +98,7 @@ proc ::rmupdate::i18n {str} {
 		if {$str == "Download url missing."} { return "Download-URL fehlt." }
 		if {$str == "Addon %s successfully installed."} { return "Addon %s erfolgreich installiert." }
 		if {$str == "Addon %s successfully uninstalled."} { return "Addon %s erfolgreich deinstalliert." }
+		if {$str == "Using recovery system to update firmware."} { return "Verwende Recovery-System für Firmware-Update." }
 	}
 	return $str
 }
@@ -154,6 +155,7 @@ proc ::rmupdate::get_rpi_version {} {
 	return ""
 }
 
+# return 1 if a>b,  0 if a=b,  -1 if a<b  
 proc ::rmupdate::compare_versions {a b} {
 	return [package vcompare $a $b]
 }
@@ -398,15 +400,27 @@ proc ::rmupdate::delete_partition_table {device} {
 	catch { exec /usr/sbin/partprobe }
 }
 
-proc ::rmupdate::is_system_upgradeable {} {
-	set sys_dev [get_system_device]
-	#if { [get_filesystem_label $sys_dev 2] != "rootfs1" } {
-	#	return 0
-	#}
-	if { [get_filesystem_label $sys_dev 3] != "rootfs2" } {
-		return 0
+proc ::rmupdate::is_recoveryfs_available {} {
+	if {[compare_versions [get_current_firmware_version] "2.31.25.20180324"] > 0} {
+		return 1
 	}
-	return 1
+	return 0
+}
+
+proc ::rmupdate::is_system_upgradeable {{target_version ""}} {
+	set sys_dev [get_system_device]
+	if { [is_recoveryfs_available] } {
+		if { $target_version == "" } {
+			return 1
+		}
+		if {[compare_versions $target_version "2.31.25.20180324"] > 0} {
+			return 1
+		}
+	}
+	if { [get_filesystem_label $sys_dev 3] == "rootfs2" } {
+		return 1
+	}
+	return 0
 }
 
 proc ::rmupdate::get_part_uuid {device {partition ""}} {
@@ -910,7 +924,7 @@ proc ::rmupdate::clone_system {target_device {activate_clone 0}} {
 	if { $exitcode != 0} {
 		error $output
 	}
-	set exitcode [catch { exec /sbin/mkfs.ext4 -F -L rootfs1 [get_partition_device $target_device 2] } output]
+	set exitcode [catch { exec /sbin/mkfs.ext4 -F -L rootfs [get_partition_device $target_device 2] } output]
 	if { $exitcode != 0 && $exitcode != 1 } {
 		error $output
 	}
@@ -968,7 +982,7 @@ proc ::rmupdate::clone_system {target_device {activate_clone 0}} {
 
 	if {$activate_clone == 1} {
 		# Relabel ext4 filesystems
-		catch { exec tune2fs -L 0rootfs1 [get_partition_device $source_device 2] }
+		catch { exec tune2fs -L 0rootfs [get_partition_device $source_device 2] }
 		catch { exec tune2fs -L 0rootfs2 [get_partition_device $source_device 3] }
 		catch { exec tune2fs -L 0userfs [get_partition_device $source_device 4] }
 
@@ -1159,7 +1173,9 @@ proc ::rmupdate::get_firmware_info {} {
 			set installed "true"
 		}
 		set supported "false"
-		if {[compare_versions $latest_supported_version $v] >= 0} {
+		if {[compare_versions $v "2.31.25.20180324"] > 0} {
+			set supported "true"
+		} elseif {[compare_versions $latest_supported_version $v] >= 0} {
 			set supported "true"
 		}
 		set image ""
@@ -1246,7 +1262,7 @@ proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reb
 	if {[get_running_installation] != ""} {
 		error [i18n "Another install process is running."]
 	}
-	if {! [is_system_upgradeable]} {
+	if {! [is_system_upgradeable $version]} {
 		error [i18n "System not upgradeable."]
 	}
 	
@@ -1269,15 +1285,48 @@ proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reb
 	}
 
 	get_system_device
-	check_sizes $firmware_image
-	update_filesystems $firmware_image $dryrun
-
-	if {$version == ""} {
-		file delete $firmware_image
-	} elseif {!$keep_download && !$dryrun} {
-		file delete $firmware_image
+	
+	set use_recovery [is_recoveryfs_available]
+	if {$use_recovery && $version != ""} {
+		if {[compare_versions $version "2.31.25.20180324"] <= 0} {
+			set use_recovery 0
+		}
 	}
-
+	
+	if {$use_recovery} {
+		# Use recovery system firmware update feature
+		write_install_log "Using recovery system to update firmware."
+		set tmp_dir "/usr/local/tmp"
+		if {!$dryrun} {
+			# TODO: only update boot.scr and filesystem label if needed
+			catch { exec /bin/mount -o remount,rw /boot }
+			catch { update_boot_scr "/boot/boot.scr" 2 }
+			catch { exec /bin/mount -o remount,ro /boot }
+			
+			# Relabel rootfs1 to rootfs
+			catch { exec tune2fs -L rootfs [get_partition_device [get_system_device] 2] }
+		}
+		catch {file mkdir $tmp_dir}
+		catch {file delete "${tmp_dir}/new_firmware.img"}
+		if {!$dryrun} {
+			if {$version == "" || $keep_download == 0} {
+				file rename -force $firmware_image "${tmp_dir}/new_firmware.img"
+			} else {
+				file copy -force $firmware_image "${tmp_dir}/new_firmware.img"
+			}
+			catch { exec ln -sf "${tmp_dir}/new_firmware.img" /usr/local/.firmwareUpdate }
+		}
+	} else {
+		check_sizes $firmware_image
+		update_filesystems $firmware_image $dryrun
+		
+		if {$version == ""} {
+			file delete $firmware_image
+		} elseif {!$keep_download && !$dryrun} {
+			file delete $firmware_image
+		}
+	}
+	
 	set_running_installation ""
 
 	if {$reboot && !$dryrun} {
@@ -1736,3 +1785,6 @@ proc ::rmupdate::set_camera_active {active} {
 #puts [rmupdate::get_system_device]
 #rmupdate::set_camera_active 1
 #rmupdate::wlan_block 0
+
+
+
