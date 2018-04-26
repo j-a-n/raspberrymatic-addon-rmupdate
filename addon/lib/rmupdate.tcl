@@ -1306,15 +1306,16 @@ proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reb
 			# Relabel rootfs1 to rootfs
 			catch { exec tune2fs -L rootfs [get_partition_device [get_system_device] 2] }
 		}
-		catch {file mkdir $tmp_dir}
-		catch {file delete "${tmp_dir}/new_firmware.img"}
+		catch { file mkdir $tmp_dir }
+		catch { file delete "${tmp_dir}/new_firmware.img" }
+		catch { file delete /usr/local/.firmwareUpdate }
 		if {!$dryrun} {
 			if {$version == "" || $keep_download == 0} {
 				file rename -force $firmware_image "${tmp_dir}/new_firmware.img"
 			} else {
 				file copy -force $firmware_image "${tmp_dir}/new_firmware.img"
 			}
-			catch { exec ln -sf "${tmp_dir}/new_firmware.img" /usr/local/.firmwareUpdate }
+			catch { exec ln -sf $tmp_dir /usr/local/.firmwareUpdate }
 			set reboot 1
 		}
 	} else {
