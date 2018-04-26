@@ -1315,6 +1315,7 @@ proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reb
 				file copy -force $firmware_image "${tmp_dir}/new_firmware.img"
 			}
 			catch { exec ln -sf "${tmp_dir}/new_firmware.img" /usr/local/.firmwareUpdate }
+			set reboot 1
 		}
 	} else {
 		check_sizes $firmware_image
