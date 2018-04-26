@@ -6,14 +6,3 @@
 
 ![Screenshot](./_doc/rmupdate-screenshot.png)
 
-## Prerequisites
-* System update feature needs an adjusted RaspMatic image with two root partitions
-
-## Installation
-* Download adjusted RaspberryMatic image:
-  * [RaspberryMatic-2.31.25.20180120-rpi0.rmupdate.img.zip](https://www.dropbox.com/s/rf3rz20d6dw47lb/RaspberryMatic-2.31.25.20180120-rpi0.rmupdate.img.zip) SHA256 sum: 6521d371aa06bf40c0d32bf0d44108d97ca469c1ea96b028a687aab3cf3e76c7
-  * [RaspberryMatic-2.31.25.20180120-rpi3.rmupdate.img.zip](https://www.dropbox.com/s/doeqrlz7q91k8ik/RaspberryMatic-2.31.25.20180120-rpi3.rmupdate.img.zip) SHA256 sum: f8698789497c38800ce4ee66ea7e38a62299d301c8590fe066ae5b7fd1d75065
-  * [RaspberryMatic-2.31.25.20180120-tinkerboard.rmupdate.img.zip](https://www.dropbox.com/s/ls114dtzaozmnw3/RaspberryMatic-2.31.25.20180120-tinkerboard.rmupdate.img.zip) SHA256 sum: d90e527e257d4cbbc44f676c94a17e4344e891c36e33a7360202a939e823504e
-* Install adjusted RaspberryMatic image like described at [RaspberryMatic project](https://github.com/jens-maus/RaspberryMatic)
-* Download [addon package](https://github.com/j-a-n/raspberrymatic-addon-rmupdate/raw/master/rmupdate.tar.gz)
-* Install addon package on RaspberryMatic via system control
