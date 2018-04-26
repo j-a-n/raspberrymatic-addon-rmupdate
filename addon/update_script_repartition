@@ -1,0 +1,31 @@
+#/bin/sh
+
+DISK="/dev/mmcblk0"
+BOOT_SIZE=268435456
+ROOT_SIZE=1073741824
+
+boot_start=$(parted $disk unit B print | grep '^ 1' | sed -n 's/ [1-4] *\([0-9]*\)B  *\([0-9]*\)B.*/\1/p')
+user_start=$(parted $disk unit B print | grep '^ 4' | sed -n 's/ [1-4] *\([0-9]*\)B  *\([0-9]*\)B.*/\1/p')
+user_end=$(parted $disk unit B print | grep '^ 4' | sed -n 's/ [1-4] *\([0-9]*\)B  *\([0-9]*\)B.*/\2/p')
+
+
+boot_end=$(($boot_start+$BOOT_SIZE-1))
+root_start=$(($boot_end+1))
+root_end=$(($root_start+$ROOT_SIZE-1))
+
+#echo $boot_start - $boot_end
+#echo $root_start - $root_end
+#echo $user_start - $user_end
+
+parted --script $disk \
+	mklabel msdos \
+	mkpart primary fat32 ${boot_start}B ${boot_end}B \
+	set 1 boot on \
+	mkpart primary ext4 ${root_start}B ${root_end}B \
+	mkpart primary ext4 ${user_start}B ${user_end}B
+
+partprobe
+
+rm "$0"
+
+fwinstall.sh
