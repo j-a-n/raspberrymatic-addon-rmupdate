@@ -1256,6 +1256,7 @@ proc ::rmupdate::delete_firmware_image {version} {
 
 proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reboot 1} {keep_download 0} {dryrun 0}} {
 	variable language
+	variable addon_dir
 	if {[regexp {^([a-z]][a-z])} $lang match l]} {
 		set language [string tolower $l]
 	}
@@ -1284,7 +1285,7 @@ proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reb
 		set firmware_image [download_firmware $download_url $version]
 	}
 
-	get_system_device
+	set sys_dev [get_system_device]
 	
 	set use_recovery [is_recoveryfs_available]
 	if {$use_recovery && $version != ""} {
@@ -1297,11 +1298,6 @@ proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reb
 		# Use recovery system firmware update feature
 		write_install_log "Using recovery system to update firmware."
 		set tmp_dir "/usr/local/tmp"
-		set update_script "${tmp_dir}/update_script"
-		if {!$dryrun} {
-			# Relabel rootfs1 to rootfs
-			catch { exec tune2fs -L rootfs [get_partition_device [get_system_device] 2] }
-		}
 		catch { file mkdir $tmp_dir }
 		catch { file delete "${tmp_dir}/new_firmware.img" }
 		catch { file delete /usr/local/.firmwareUpdate }
@@ -1312,6 +1308,10 @@ proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reb
 				file copy -force $firmware_image "${tmp_dir}/new_firmware.img"
 			}
 			catch { exec ln -sf $tmp_dir /usr/local/.firmwareUpdate }
+			if { [get_filesystem_label $sys_dev 3] == "rootfs2" } {
+				file copy "${addon_dir}/update_script_repartition" "${tmp_dir}/update_script"
+				file attributes "${tmp_dir}/update_script" -permissions 0755
+			}
 			set reboot 1
 		}
 	} else {
