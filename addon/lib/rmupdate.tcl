@@ -1297,12 +1297,8 @@ proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reb
 		# Use recovery system firmware update feature
 		write_install_log "Using recovery system to update firmware."
 		set tmp_dir "/usr/local/tmp"
+		set update_script "${tmp_dir}/update_script"
 		if {!$dryrun} {
-			# TODO: only update boot.scr and filesystem label if needed
-			catch { exec /bin/mount -o remount,rw /boot }
-			catch { update_boot_scr "/boot/boot.scr" 2 }
-			catch { exec /bin/mount -o remount,ro /boot }
-			
 			# Relabel rootfs1 to rootfs
 			catch { exec tune2fs -L rootfs [get_partition_device [get_system_device] 2] }
 		}
