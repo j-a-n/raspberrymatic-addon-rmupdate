@@ -1016,7 +1016,7 @@ proc ::rmupdate::get_current_firmware_version {} {
 	}
 	set data [read $fp]
 	close $fp
-	regexp {\s*VERSION\s*=s*([\d\.]+)\s*$} $data match current_version
+	regexp {\s*VERSION\s*=\s*([\d\.]+)\s*$} $data match current_version
 	return $current_version
 }
 
