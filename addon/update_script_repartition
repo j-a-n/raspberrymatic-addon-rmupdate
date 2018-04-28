@@ -1,5 +1,9 @@
 #/bin/sh
 
+fwinstall.sh
+
+exit 0
+
 DISK="/dev/mmcblk0"
 BOOT_SIZE=268435456
 ROOT_SIZE=1073741824
