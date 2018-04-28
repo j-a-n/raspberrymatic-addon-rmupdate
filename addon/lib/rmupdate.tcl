@@ -279,6 +279,9 @@ proc ::rmupdate::get_partitions {{device ""}} {
 
 	foreach d [split $data "\n"] {
 		if {[regexp {Disk\s+(\S+):.*\s(\d+)\s+bytes} $d match dev size]} {
+			if {[regexp {/dev/ram} $dev]} {                                                                      
+				continue                                                                                     
+			}
 			set partitions(${dev}::0::partition) 0
 			set partitions(${dev}::0::disk_device) $dev
 			set partitions(${dev}::0::model) ""
@@ -1016,7 +1019,7 @@ proc ::rmupdate::get_current_firmware_version {} {
 	}
 	set data [read $fp]
 	close $fp
-	regexp {\s*VERSION\s*=\s*([\d\.]+)\s*$} $data match current_version
+	regexp {\s*VERSION\s*=\s*([\d\.]+)\s*} $data match current_version
 	return $current_version
 }
 
