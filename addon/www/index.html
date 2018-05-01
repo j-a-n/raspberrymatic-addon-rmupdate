@@ -631,7 +631,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
-		function wlan_scan() {
+		function wlan_scan(force) {
+			if (!force && !$('#wlan-scan-checkbox').prop("checked")) {
+				return;
+			}
 			rest("GET", "/wlan_scan", null, function(data) {
 				$('#wlan-list tbody').empty();
 				data.forEach(function(wlan) {
@@ -748,6 +751,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							install_addon_from_file: 'Install addon from file',
 							choose_addon_file: 'Choose and install addon-file',
 							wlan: "WLAN",
+							wlan_scanning: "Scan for networks",
 							wlan_ssid: "SSID",
 							wlan_signal: "Signal",
 							wlan_connected: "Connected",
@@ -831,6 +835,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							install_addon_from_file: 'Addon aus Datei installieren',
 							choose_addon_file: 'Addon-Datei auswählen und installieren',
 							wlan: "WLAN",
+							wlan_scanning: "Nach Netzwerken suchen",
 							wlan_ssid: "SSID",
 							wlan_signal: "Signal",
 							wlan_connected: "Verbunden",
@@ -887,9 +892,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			get_partitions();
 			get_firmware_info();
 			get_addon_info();
-			wlan_scan();
-			
-			
+			wlan_scan(true);
 		});
 	</script>
 </head>
@@ -1048,6 +1051,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			</div>
 		</h2>
 		<div>
+			<div class="ui toggle checkbox">
+				<input type="checkbox" id="wlan-scan-checkbox" onclick="wlan_scan();">
+				<label data-i18n="wlan_scanning"></label>
+			</div>
 			<table id="wlan-list" class="ui celled stackable table">
 				<thead>
 					<tr>
