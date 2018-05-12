@@ -1311,9 +1311,15 @@ proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reb
 				file copy -force $firmware_image "${tmp_dir}/new_firmware.img"
 			}
 			catch { exec ln -sf $tmp_dir /usr/local/.firmwareUpdate }
+			set fd [open "/usr/local/.recoveryMode" "w"]
+			close $fd
 			if { [get_filesystem_label $sys_dev 3] == "rootfs2" } {
-				file copy "${addon_dir}/update_script_repartition" "${tmp_dir}/update_script"
+				file copy -force "${addon_dir}/update_script_repartition" "${tmp_dir}/update_script"
 				file attributes "${tmp_dir}/update_script" -permissions 0755
+				# Ensure correct partition number for userfs
+				exec /bin/mount -o remount,rw "/boot"
+				update_boot_scr "/boot/boot.scr" 2
+				exec /bin/mount -o remount,ro "/boot"
 			}
 			set reboot 1
 		}
