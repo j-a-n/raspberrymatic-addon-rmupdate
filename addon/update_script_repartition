@@ -1,35 +1,88 @@
 #/bin/sh
 
-fwinstall.sh
-
-exit 0
-
 DISK="/dev/mmcblk0"
 BOOT_SIZE=268435456
 ROOT_SIZE=1073741824
 
-boot_start=$(parted $disk unit B print | grep '^ 1' | sed -n 's/ [1-4] *\([0-9]*\)B  *\([0-9]*\)B.*/\1/p')
-user_start=$(parted $disk unit B print | grep '^ 4' | sed -n 's/ [1-4] *\([0-9]*\)B  *\([0-9]*\)B.*/\1/p')
-user_end=$(parted $disk unit B print | grep '^ 4' | sed -n 's/ [1-4] *\([0-9]*\)B  *\([0-9]*\)B.*/\2/p')
 
+echo "Deleting update_script.<br />" 1>&2
+mount -o remount,rw /userfs
+rm -f "$0"
+mount -o remount,ro /userfs
 
-boot_end=$(($boot_start+$BOOT_SIZE-1))
-root_start=$(($boot_end+1))
-root_end=$(($root_start+$ROOT_SIZE-1))
+echo "Checking for rootfs2 on $DISK.<br />" 1>&2
 
-#echo $boot_start - $boot_end
-#echo $root_start - $root_end
-#echo $user_start - $user_end
+function start_sshd() {
+	echo "Starting ssh daemon.<br />" 1>&2
+	mount -o remount,rw /bootfs
+	echo -n "rmupdate" > /bootfs/recoveryfs-sshpwd
+	mount -o remount,ro /bootfs
+	/etc/init.d/S50sshd start
+}
 
-parted --script $disk \
-	mklabel msdos \
-	mkpart primary fat32 ${boot_start}B ${boot_end}B \
-	set 1 boot on \
-	mkpart primary ext4 ${root_start}B ${root_end}B \
-	mkpart primary ext4 ${user_start}B ${user_end}B
+if blkid ${DISK}p3 | grep 'LABEL="rootfs2"' 1>/dev/null 2>/dev/null; then
+	echo "Rootfs2 found.<br />" 1>&2
+	
+	start_sshd
+	
+	cp /bootfs/VERSION /tmp/bootfs.VERSION
+	umount /bootfs
+	umount /rootfs
+	
+	echo "Current partition table:<br />" 1>&2
+	parted $DISK unit B print | sed ':a;N;$!ba;s#\n#<br />#g' 1>&2
+	
+	boot_start=$(parted $DISK unit B print | grep '^ 1' | sed -n 's/ [1-4] *\([0-9]*\)B  *\([0-9]*\)B.*/\1/p')
+	user_start=$(parted $DISK unit B print | grep '^ 4' | sed -n 's/ [1-4] *\([0-9]*\)B  *\([0-9]*\)B.*/\1/p')
+	user_end=$(parted $DISK unit B print | grep '^ 4' | sed -n 's/ [1-4] *\([0-9]*\)B  *\([0-9]*\)B.*/\2/p')
+	
+	boot_end=$(($boot_start+$BOOT_SIZE-1))
+	root_start=$(($boot_end+1))
+	root_end=$(($root_start+$ROOT_SIZE-1))
+	
+	boot_start_s=$((${boot_start}/512))
+	boot_size_s=$(((${boot_end}-${boot_start}+1)/512))
+	root_start_s=$((${root_start}/512))
+	root_size_s=$(((${root_end}-${root_start}+1)/512))
+	user_start_s=$((${user_start}/512))
+	user_size_s=$(((${user_end}-${user_start}+1)/512))
+	
+	echo "Calculated new partition layout:<br />" 1>&2
+	echo " bootfs: $boot_start ($boot_start_s) - $boot_end - $boot_size_s<br />" 1>&2
+	echo " rootfs: $root_start ($root_start_s) - $root_end - $root_size_s<br />" 1>&2
+	echo " userfs: $user_start ($user_start_s) - $user_end - $user_size_s<br />" 1>&2
+	
+	echo "Writing new partition table to disk.<br />" 1>&2
+	# parted will refuse to write partition table because partitions are mounted
+	#parted --script $DISK \
+	#	mklabel msdos \
+	#	mkpart primary fat32 ${boot_start}B ${boot_end}B \
+	#	set 1 boot on \
+	#	mkpart primary ext4 ${root_start}B ${root_end}B \
+	#	mkpart primary ext4 ${user_start}B ${user_end}B
+	
+	{
+		echo "$boot_start_s,$boot_size_s,0x0C,*"
+		echo "$root_start_s,$root_size_s,0x83"
+		echo "$user_start_s,$user_size_s,0x83"
+		,0
+	} | sfdisk --no-reread --force --wipe=always --label=dos $DISK 2>&1 | sed ':a;N;$!ba;s#\n#<br />#g' 1>&2
+	
+	# Use dd to write label id
+	printf "\xde\xed\xbe\xef" | dd of=$DISK bs=1 count=4 seek=440
+	
+	#echo "New partition table:<br />" 1>&2
+	#parted $DISK unit B print | sed ':a;N;$!ba;s#\n#<br />#g' 1>&2
+	
+	partprobe
+	
+	# RaspberryMatic will check for label rootfs and VERSION file
+	mkfs.ext4 -L rootfs ${DISK}p2
+	mount ${DISK}p2 /rootfs
+	cp /tmp/bootfs.VERSION /rootfs/VERSION
+	umount /rootfs
+fi
 
-partprobe
-
-rm "$0"
-
+echo "Running fwinstall.sh (again).<br />" 1>&2
+rm -f /tmp/.runningFirmwareUpdate
 fwinstall.sh
