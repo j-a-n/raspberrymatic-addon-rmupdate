@@ -99,6 +99,7 @@ proc ::rmupdate::i18n {str} {
 		if {$str == "Addon %s successfully installed."} { return "Addon %s erfolgreich installiert." }
 		if {$str == "Addon %s successfully uninstalled."} { return "Addon %s erfolgreich deinstalliert." }
 		if {$str == "Using recovery system to update firmware."} { return "Verwende Recovery-System für Firmware-Update." }
+		if {$str == "Recovery system will be started now, which will perform the firmware update.\nThis process takes some minutes, please be patient..."} { return "Das Recovery-System wird nun gestartet und das Firmware-Update durchgeführt.\nBitte haben Sie ein wenig Geduld, dieser Vorgang benötigt einige Minuten..." }
 	}
 	return $str
 }
@@ -1337,7 +1338,11 @@ proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reb
 	set_running_installation ""
 
 	if {$reboot && !$dryrun} {
-		write_install_log "System will reboot now."
+		if {$use_recovery} {
+			write_install_log "Recovery system will be started now, which will perform the firmware update.\nThis process takes some minutes, please be patient..."
+		} else {
+			write_install_log "System will reboot now."
+		}
 	}
 
 	after 5000
