@@ -469,7 +469,7 @@ proc ::rmupdate::update_cmdline {cmdline root} {
 	close $fd
 }
 
-proc ::rmupdate::update_boot_scr {boot_scr root} {
+proc ::rmupdate::update_boot_scr {boot_scr rootfs userfs} {
 	set boot_script "/tmp/boot.script"
 
 	catch { exec /bin/dd if=$boot_scr of=$boot_script bs=72 skip=1 }
@@ -478,8 +478,8 @@ proc ::rmupdate::update_boot_scr {boot_scr root} {
 	set data [read $fd]
 	close $fd
 
-	regsub -all "setenv rootfs \[0-9\]" $data "setenv rootfs ${root}" data
-	regsub -all "setenv userfs \[0-9\]" $data "setenv userfs 4" data
+	regsub -all "setenv rootfs \[0-9\]" $data "setenv rootfs ${rootfs}" data
+	regsub -all "setenv userfs \[0-9\]" $data "setenv userfs ${userfs}" data
 
 	set fd [open $boot_script w]
 	puts -nonewline $fd $data
@@ -749,7 +749,7 @@ proc ::rmupdate::update_filesystems {image {dryrun 0}} {
 				}
 				set part_uuid [get_part_uuid $sys_dev $new_root_partition_number]
 				if {[file exists "${mnt_s}/boot.scr"]} {
-					update_boot_scr "${mnt_s}/boot.scr" $new_root_partition_number
+					update_boot_scr "${mnt_s}/boot.scr" $new_root_partition_number 4
 				} elseif {[file exists "${mnt_s}/extlinux/extlinux.conf"]} {
 					update_cmdline "${mnt_s}/extlinux/extlinux.conf" "PARTUUID=${part_uuid}"
 				} elseif {[file exists "${mnt_s}/cmdline.txt"]} {
@@ -842,7 +842,7 @@ proc ::rmupdate::move_userfs_to_device {target_device {sync_data 0} {repartition
 		}
 		set target_partition_device [get_partition_device $target_device $partition_number]
 	}
-
+	
 	if {$sync_data == 1} {
 		catch { exec /bin/umount $target_partition_device }
 		set exitcode [catch { exec /sbin/mkfs.ext4 -F -L userfs $target_partition_device } output]
@@ -863,7 +863,7 @@ proc ::rmupdate::move_userfs_to_device {target_device {sync_data 0} {repartition
 			error $output
 		}
 	}
-
+	
 	catch { exec /sbin/tune2fs -L 0userfs $source_partition_device }
 	catch { exec /sbin/tune2fs -L userfs $target_partition_device }
 }
@@ -1301,27 +1301,78 @@ proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reb
 	if {$use_recovery} {
 		# Use recovery system firmware update feature
 		write_install_log "Using recovery system to update firmware."
-		set tmp_dir "/usr/local/tmp"
-		catch { file mkdir $tmp_dir }
-		catch { file delete "${tmp_dir}/new_firmware.img" }
-		catch { file delete /usr/local/.firmwareUpdate }
+		set usr_local "/usr/local"
+		
+		# Test if userfs is on the same device as bootfs
+		set boot_dev ""
+		set user_dev ""
+		set user_part ""
+		set user0_part ""
+		set use_user0 0
+		foreach d [split [exec /sbin/blkid] "\n"] {
+			if {[regexp {^(/dev.*)(\d):.*LABEL="([^"]+)"} $d match dev pnum lab]} {
+				if {$lab == "bootfs"} {
+					set boot_dev $dev
+				} elseif {$lab == "userfs"} {
+					set user_dev $dev
+					set user_part "${dev}${pnum}"
+				} elseif {$lab == "0userfs"} {
+					set user0_part "${dev}${pnum}"
+				}
+			}
+		}
 		if {!$dryrun} {
+			if {$boot_dev != "" && $user_dev != "" && $boot_dev != $user_dev} {
+				if {$user0_part == ""} {
+					error "userfs0 not found"
+				}
+				set usr_local "/tmp/mnt_user0"
+				set use_user0 1
+				if {[file exists $usr_local]} {
+					catch {exec /bin/umount "${usr_local}"}
+				} else {
+					file mkdir $usr_local
+				}
+				catch {exec /bin/mount $user0_part "${usr_local}"}
+			}
+			set tmp_dir "${usr_local}/tmp"
+			catch { file mkdir $tmp_dir }
+			catch { file delete "${tmp_dir}/new_firmware.img" }
+			catch { file delete "${usr_local}/.firmwareUpdate" }
 			if {$version == "" || $keep_download == 0} {
 				file rename -force $firmware_image "${tmp_dir}/new_firmware.img"
 			} else {
 				file copy -force $firmware_image "${tmp_dir}/new_firmware.img"
 			}
-			catch { exec ln -sf $tmp_dir /usr/local/.firmwareUpdate }
-			set fd [open "/usr/local/.recoveryMode" "w"]
+			catch { exec ln -sf "/usr/local/tmp" "${usr_local}/.firmwareUpdate" }
+			
+			set fd [open "${usr_local}/.recoveryMode" "w"]
 			close $fd
+			
+			file copy -force "${addon_dir}/firmware_update_script" "${tmp_dir}/update_script"
+			file attributes "${tmp_dir}/update_script" -permissions 0755
 			if { [get_filesystem_label $sys_dev 3] == "rootfs2" } {
-				file copy -force "${addon_dir}/update_script_repartition" "${tmp_dir}/update_script"
-				file attributes "${tmp_dir}/update_script" -permissions 0755
+				exec /bin/sed -i s/REPARTITION=0/REPARTITION=1/ "${tmp_dir}/update_script"
 				# Ensure correct partition number for userfs
 				exec /bin/mount -o remount,rw "/boot"
-				update_boot_scr "/boot/boot.scr" 2
+				update_boot_scr "/boot/boot.scr" 2 4
 				exec /bin/mount -o remount,ro "/boot"
 			}
+			
+			#exec /bin/mount -o remount,rw "/boot"
+			#set fd [open "/boot/recoveryfs-sshpwd" "w"]
+			#puts -nonewline $fd "rmupdate"
+			#close $fd
+			#exec /bin/mount -o remount,ro "/boot"
+			
+			if {$use_user0} {
+				exec /bin/sed -i s/RELABEL=0/RELABEL=1/ "${tmp_dir}/update_script"
+				exec /bin/umount "${usr_local}"
+				file delete $usr_local
+				catch { exec /sbin/tune2fs -L 0userfs $user_part }
+				catch { exec /sbin/tune2fs -L userfs $user0_part }
+			}
+			
 			set reboot 1
 		}
 	} else {
