@@ -1637,7 +1637,7 @@ proc ::rmupdate::install_addon {{addon_id ""} {download_url ""}} {
 	file mkdir $tmp_dir
 
 	cd $tmp_dir
-	exec /bin/tar --no-same-owner xzvf "${archive_file}"
+	exec /bin/tar --no-same-owner -xzvf "${archive_file}"
 
 	write_log 3 "Running update_script"
 	file attributes update_script -permissions 0755
