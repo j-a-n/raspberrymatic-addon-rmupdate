@@ -593,7 +593,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						.attr('data-addon-config-url', addon.config_url)
 						.append($('<i class="setting icon">'), i18next.t('open_config'));
 					bconfig.click(function() {
-						var win = window.open(this.getAttribute('data-addon-config-url'), '_blank');
+						var win = window.open(this.getAttribute('data-addon-config-url') + window.location.search, '_blank');
 						win.focus();
 					});
 					
