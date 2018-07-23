@@ -1083,7 +1083,14 @@ proc ::rmupdate::download_firmware {{download_url ""} {version ""}} {
 	write_install_log "Downloading firmware from %s." $download_url
 	regexp {/([^/]+)$} $download_url match archive_file
 	set archive_file "${img_dir}/${archive_file}"
-	file mkdir $img_dir
+	if {![file exists $img_dir]} {
+		file mkdir $img_dir
+	}
+	if {![file exists "${img_dir}/.nobackup"]} {
+		# Create marker file to exclude directory from RaspberryMatic backup
+		set fd [open "${img_dir}/.nobackup" "w"]
+		close $fd
+	}
 	if {$install_log != ""} {
 		exec /usr/bin/wget "${download_url}" --show-progress --progress=dot:giga --no-check-certificate --quiet --output-document=$archive_file 2>>${install_log}
 		write_install_log ""
