@@ -39,6 +39,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		var latest_firmware = '?';
 		var wlanScanTimer;
 		var moving_userfs_to_device = false;
+		var sid = null;
+		
+		function get_url_vars() {
+			var vars = {};
+			var params = window.location.search.substring(1).split('&');
+			for(var i=0; i<params.length; i++) {
+				param = params[i].split('=');
+				if (param.length > 1) {
+					vars[param[0]] = param[1];
+				}
+			}
+			return vars;
+		}
+		
+		function get_url_var(name) {
+			return get_url_vars()[name];
+		}
 		
 		function display_message(type, text, millis) {
 			clear_message();
@@ -74,8 +91,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			if (!error_callback) {
 				error_callback = default_error_callback
 			}
+			if (data != null) {
+				data = JSON.stringify(data);
+			}
 			$.ajax({
-				url: "rest.cgi?" + path,
+				url: "rest.cgi?sid=" + sid + "&path=" + path,
 				type: method,
 				data: data,
 				context: document.body,
@@ -207,7 +227,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function delete_firmware_image(version) {
-			rest("POST", "/delete_firmware_image", JSON.stringify({"version":version}),
+			rest("POST", "/delete_firmware_image", {"version":version},
 				function(data) {
 					display_message('success', i18next.t('delete_firmware_img_success', {'version': version}), 5000);
 					get_firmware_info();
@@ -231,7 +251,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 				if (!download_url) download_url = "";
 				if (!version) version = "";
-				rest("POST", "/start_install_firmware", JSON.stringify({"download_url": download_url, "version":version, "language": language, "reboot":reboot, "dryrun":dryrun, "keep_download": keep_download}),
+				rest("POST", "/start_install_firmware", {"download_url": download_url, "version":version, "language": language, "reboot":reboot, "dryrun":dryrun, "keep_download": keep_download},
 					function(data) {
 						// We are not expecting a response
 					},
@@ -397,7 +417,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 									onApprove: function() {
 										display_message('warning', i18next.t('moving_userfs'), 300000);
 										if (!moving_userfs_to_device) {
-											rest('POST', '/move_userfs_to_device', JSON.stringify({"target_device":target_device}),
+											rest('POST', '/move_userfs_to_device', {"target_device":target_device},
 												function(data) {
 													moving_userfs_to_device = false;
 													display_message('success', i18next.t('userfs_moved'), 120000);
@@ -423,7 +443,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 											return true;
 										},
 										onApprove: function() {
-											rest('POST', '/delete_partition_table', JSON.stringify({"device":device}),
+											rest('POST', '/delete_partition_table', {"device":device},
 												function(data) {
 													display_message('success', i18next.t('partiton_table_deleted'), 120000);
 													get_partitions();
@@ -532,7 +552,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				
 				if (file_input) {
 					$.ajax({
-						url: 'rest.cgi?/install_addon_archive',
+						url: 'rest.cgi?sid=' + sid + '&path=/install_addon_archive',
 						data: file_input.files[0],
 						type: 'POST',
 						processData: false,
@@ -542,7 +562,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					});
 				}
 				else {
-					rest("POST", "/install_addon", JSON.stringify({"addon_id":addon_id, "download_url":download_url}),
+					rest("POST", "/install_addon", {"addon_id":addon_id, "download_url":download_url},
 						success_callback, error_callback
 					);
 				}
@@ -554,7 +574,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				display_message('info', i18next.t('uninstalling_addon', {'addon_id': addon_id}), 180000);
 				disable_buttons();
 				$('[data-uninstall-addon-id="' + addon_id + '"]').addClass('loading');
-				rest("POST", "/uninstall_addon", JSON.stringify({"addon_id":addon_id}),
+				rest("POST", "/uninstall_addon", {"addon_id":addon_id},
 					function(data) {
 						//console.info(data);
 						display_message('success', data, 5000);
@@ -672,6 +692,44 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 		}
 		
+		function init() {
+			var form_config = {
+				on: 'blur',
+				fields: {
+					password: {
+						identifier: 'password'
+					}
+				},
+				onSuccess: function(event, fields) {
+					if (wlanScanTimer) {
+						clearTimeout(wlanScanTimer);
+					}
+					wlanScanTimer = setTimeout(function(){ wlan_scan(); }, 10000);
+					$(event.currentTarget).closest("div.modal").modal('hide');
+					var ssid = $('#form-connect-wlan').attr('data-ssid');
+					var password = $(event.currentTarget).form('get value', 'password');
+					$('.button[data-ssid]').addClass('loading');
+					rest("POST", "/wlan_connect", {"ssid": ssid, "password": password});
+					event.preventDefault();
+				}
+			};
+			$('#form-connect-wlan').form(form_config);
+			
+			rest("GET", "/version", null, function(version) {
+				document.title = document.title + " " + version;
+			});
+			rest("GET", "/is_system_upgradeable", null, function(upgradeable) {
+				if (!upgradeable) {
+					display_message('error', i18next.t('system_not_upgradeable'), 10000);
+				}
+			});
+			get_system_info();
+			get_partitions();
+			get_firmware_info();
+			get_addon_info();
+			wlan_scan(true);
+		}
+		
 		$(document).ready(function() {
 			i18next.init({
 				lng: language,
@@ -759,6 +817,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							password: "Password",
 							connect: "Connect",
 							disconnect: "Disconnect",
+							login: "Login",
+							username: "Username",
 						}
 					},
 					de: {
@@ -843,6 +903,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							password: "Passwort",
 							connect: "Verbinden",
 							disconnect: "Trennen",
+							login: "Anmelden",
+							username: "Benuzername",
 						}
 					}
 				}
@@ -858,42 +920,48 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$('#install-firmware-url-button').contents().last()[0].textContent = i18next.t('install');
 				$('#install-addon-file-button').contents().last()[0].textContent = i18next.t('choose_addon_file');
 			});
-			var form_config = {
-				on: 'blur',
-				fields: {
-					password: {
-						identifier: 'password'
-					}
-				},
-				onSuccess: function(event, fields) {
-					if (wlanScanTimer) {
-						clearTimeout(wlanScanTimer);
-					}
-					wlanScanTimer = setTimeout(function(){ wlan_scan(); }, 10000);
-					$(event.currentTarget).closest("div.modal").modal('hide');
-					var ssid = $('#form-connect-wlan').attr('data-ssid');
-					var password = $(event.currentTarget).form('get value', 'password');
-					$('.button[data-ssid]').addClass('loading');
-					rest("POST", "/wlan_connect", JSON.stringify({"ssid": ssid, "password": password}));
-					event.preventDefault();
-				}
-			};
-			$('#form-connect-wlan').form(form_config);
 			
-			rest("GET", "/version", null, function(version) {
-				document.title = document.title + " " + version;
-			});
-			rest("GET", "/is_system_upgradeable", null, function(upgradeable) {
-				if (!upgradeable) {
-					display_message('error', i18next.t('system_not_upgradeable'), 10000);
+			sid = get_url_var('sid');
+			rest("GET", "/get_session", null,
+				function(data) {
+					init();
+				},
+				function(xhr, ajaxOptions, thrownError) {
+					if (xhr.status == 401) {
+						var form_config = {
+							on: 'blur',
+							fields: {
+								username: {
+									identifier: 'username'
+								},
+								password: {
+									identifier: 'password'
+								}
+							},
+							onSuccess: function(event, fields) {
+								event.preventDefault();
+								var username = $(event.currentTarget).form('get value', 'username');
+								var password = $(event.currentTarget).form('get value', 'password');
+								rest("POST", "/login", {"username": username, "password": password},
+									function(data) {
+										window.location.href = window.location.href.replace(/\?.*/, '?sid=@' + data + '@');
+									},
+									function(xhr, ajaxOptions, thrownError) {
+										default_error_callback(xhr, ajaxOptions, thrownError);
+									}
+								);
+							}
+						};
+						$('#form-login').form(form_config);
+						$('#modal-login').modal('show');
+					}
+					else {
+						default_error_callback(xhr, ajaxOptions, thrownError);
+					}
 				}
-			});
-			get_system_info();
-			get_partitions();
-			get_firmware_info();
-			get_addon_info();
-			wlan_scan(true);
+			);
 		});
+		
 	</script>
 </head>
 <body>
@@ -1161,6 +1229,29 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				<div class="ui error message"></div>
 				<div class="ui button" onclick="$('#modal-connect-wlan').modal('hide');" data-i18n="cancel"></div>
 				<div id="submit-connect-wlan" class="ui primary submit button" data-i18n="connect"></div>
+			</form>
+		</div>
+	</div>
+	
+	<div id="modal-login" class="ui modal">
+		<i class="close icon"></i>
+		<div class="header" data-i18n="login">
+		</div>
+		<div class="content">
+			<form id="form-login" class="ui form">
+				<div class="field">
+					<label data-i18n="username"></label>
+					<input type="text" name="username" value="Admin">
+				</div>
+				<div class="field">
+					<label data-i18n="password"></label>
+					<input type="password" name="password">
+				</div>
+				<div class="ui error message"></div>
+				<!--
+				<div class="ui button" onclick="$('#modal-login').modal('hide');" data-i18n="cancel"></div>
+				-->
+				<div id="submit-login" class="ui primary submit button" data-i18n="login"></div>
 			</form>
 		</div>
 	</div>
