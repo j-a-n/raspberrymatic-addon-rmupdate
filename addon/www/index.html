@@ -944,7 +944,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 								var password = $(event.currentTarget).form('get value', 'password');
 								rest("POST", "/login", {"username": username, "password": password},
 									function(data) {
-										window.location.href = window.location.href.replace(/\?.*/, '?sid=@' + data + '@');
+										window.location.href = window.location.href.replace(/\?.*/, '') + '?sid=@' + data + '@';
 									},
 									function(xhr, ajaxOptions, thrownError) {
 										default_error_callback(xhr, ajaxOptions, thrownError);
