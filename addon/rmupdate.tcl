@@ -25,6 +25,7 @@ proc usage {} {
 	puts stderr "usage: ${argv0} <module> <command>"
 	puts stderr ""
 	puts stderr "possible commands:"
+	puts stderr "  firmware list                 : list available firmwares"
 	puts stderr "  firmware show_current         : show current firmware version"
 	puts stderr "  firmware show_latest          : show latest available firmware version"
 	puts stderr "  firmware install_latest       : install latest available firmware version"
@@ -41,7 +42,12 @@ proc main {} {
 	set cmd [string tolower [lindex $argv 1]]
 	
 	if {$mod == "firmware"} {
-		if {$cmd == "show_current"} {
+		if {$cmd == "list"} {
+			foreach e [rmupdate::get_available_firmware_downloads] {
+				set version [rmupdate::get_version_from_filename $e]
+				puts $version
+			}
+		} elseif {$cmd == "show_current"} {
 			puts [rmupdate::get_current_firmware_version]
 		} elseif {$cmd == "show_latest"} {
 			puts [rmupdate::get_latest_firmware_version]
