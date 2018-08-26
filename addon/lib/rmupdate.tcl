@@ -280,8 +280,8 @@ proc ::rmupdate::get_partitions {{device ""}} {
 
 	foreach d [split $data "\n"] {
 		if {[regexp {Disk\s+(\S+):.*\s(\d+)\s+bytes} $d match dev size]} {
-			if {[regexp {/dev/ram} $dev]} {                                                                      
-				continue                                                                                     
+			if {[regexp {/dev/ram} $dev]} {
+				continue
 			}
 			set partitions(${dev}::0::partition) 0
 			set partitions(${dev}::0::disk_device) $dev
