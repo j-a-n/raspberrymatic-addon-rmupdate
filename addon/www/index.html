@@ -693,6 +693,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function init() {
+			$('body').dimmer('hide');
 			var form_config = {
 				on: 'blur',
 				fields: {
@@ -921,6 +922,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$('#install-addon-file-button').contents().last()[0].textContent = i18next.t('choose_addon_file');
 			});
 			
+			$('body').dimmer('show');
 			sid = get_url_var('sid');
 			rest("GET", "/get_session", null,
 				function(data) {
