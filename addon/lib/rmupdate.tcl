@@ -1461,9 +1461,17 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 						set addons(${id}::${keyl}) $value
 						if {$keyl == "update" && $fetch_available_version == 1} {
 							catch {
-								#set cgi "${addons_www_dir}/[string range $value 8 end]"
-								#set available_version [exec tclsh "$cgi"]
-								set available_version [exec /usr/bin/wget "http://localhost${value}" --quiet --output-document=-]
+								set cgi "${addons_www_dir}/[string range $value 8 end]"
+								set cfd [open $cgi r]
+								set cgi_data [read $cfd]
+								close $cfd
+								set firstline [lindex [split $cgi_data "\n"] 0]
+								write_log 1 "firstline: ${firstline}"
+								regexp {^#!(.*)$} $firstline match cmd
+								set available_version [exec $cmd "$cgi"]
+								if {!$available_version} {
+									set available_version [exec /usr/bin/wget "http://localhost${value}" --quiet --output-document=-]
+								}
 								set addons(${id}::available_version) $available_version
 							}
 						}
