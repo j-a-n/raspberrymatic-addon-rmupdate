@@ -1450,6 +1450,8 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 			set addons(${id}::config_url) ""
 			set addons(${id}::operations) ""
 			set addons(${id}::download_url) ""
+			set addons(${id}::cgi) ""
+			set addons(${id}::cgi_interpreter) ""
 			foreach line [split $data "\n"] {
 				regexp {^(\S+)\s*:\s*(\S.*)\s*$} $line match key value
 				if { [info exists key] } {
@@ -1466,12 +1468,12 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 								set cgi_data [read $cfd]
 								close $cfd
 								set firstline [lindex [split $cgi_data "\n"] 0]
-								write_log 1 "firstline: ${firstline}"
-								regexp {^#!(.*)$} $firstline match cmd
-								set available_version [exec $cmd "$cgi"]
-								if {!$available_version} {
-									set available_version [exec /usr/bin/wget "http://localhost${value}" --quiet --output-document=-]
-								}
+								regexp {^#!(.*)$} $firstline match cgi_interpreter
+								set addons(${id}::cgi) $cgi
+								set addons(${id}::cgi_interpreter) $cgi_interpreter
+								set ::env(QUERY_STRING) ""
+								set available_version [exec $cgi_interpreter "$cgi"]
+								#set available_version [exec /usr/bin/wget "http://localhost${value}" --quiet --output-document=-]
 								set addons(${id}::available_version) $available_version
 							}
 						}
@@ -1489,10 +1491,14 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 			set opt [lindex $tmp 2]
 			if {$opt == "update" && $addons($key) != "" && $addons(${addon_id}::available_version) != ""} {
 				set available_version $addons(${addon_id}::available_version)
-				set url "http://localhost/$addons($key)?cmd=download&version=${available_version}"
+				#set url "http://localhost/$addons($key)?cmd=download&version=${available_version}"
 				catch {
-					write_log 4 "Get: ${url}"
-					set data [exec /usr/bin/wget "${url}" --quiet --output-document=-]
+					#write_log 4 "Get: ${url}"
+					#set data [exec /usr/bin/wget "${url}" --quiet --output-document=-]
+					set cgi $addons(${addon_id}::cgi)
+					set cgi_interpreter $addons(${addon_id}::cgi_interpreter)
+					set ::env(QUERY_STRING) "cmd=download&version=${available_version}"
+					set data [exec $cgi_interpreter "$cgi"]
 					write_log 4 "Response: ${data}"
 					regexp {url=([^\s\"\']+)} $data match download_url
 					if { [info exists download_url] } {
