@@ -1472,7 +1472,7 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 								set addons(${id}::cgi) $cgi
 								set addons(${id}::cgi_interpreter) $cgi_interpreter
 								set ::env(QUERY_STRING) ""
-								set available_version [exec $cgi_interpreter "$cgi"]
+								set available_version [lindex [split [string map {"\r" ""} [exec $cgi_interpreter "$cgi"]] "\n\n"] end]
 								#set available_version [exec /usr/bin/wget "http://localhost${value}" --quiet --output-document=-]
 								set addons(${id}::available_version) $available_version
 							}
