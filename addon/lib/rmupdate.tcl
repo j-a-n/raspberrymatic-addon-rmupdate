@@ -1554,6 +1554,9 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 												if {[string first "ccurm" $filename] > -1} {
 													set prio [expr {$prio + 2}]
 												}
+												if {[string first "ccu3" $filename] > -1} {
+													set prio [expr {$prio + 2}]
+												}
 												if {$prio > $best_prio} {
 													set best_prio $prio
 													set best_href $href
