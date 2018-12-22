@@ -22,11 +22,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<meta charset="UTF-8">
 	<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/i18next/8.1.0/i18next.min.js" ></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-i18next/1.2.0/jquery-i18next.min.js" ></script>
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2.7/semantic.min.css" integrity="sha256-wT6CFc7EKRuf7uyVfi+MQNHUzojuHN2pSw0YWFt2K5E=" crossorigin="anonymous" />
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2.7/semantic.min.js" integrity="sha256-flVaeawsBV96vCHiLmXn03IRJym7+ZfcLVvUWONCas8=" crossorigin="anonymous"></script>
+	<script src="js/jquery-3.3.1.min.js"></script>
+	<script src="js/i18next-13.0.0.min.js"></script>
+	<script src="js/jquery-i18next-1.2.1.min.js"></script>
+	<script src="js/semantic-2.4.2.min.js"></script>
+	<link rel="stylesheet" href="css/semantic-2.4.2.min.css" />
 	<style>
 	</style>
 	
@@ -693,7 +693,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function init() {
-			$('body').dimmer('hide');
+			$('#content').dimmer('hide');
 			var form_config = {
 				on: 'blur',
 				fields: {
@@ -922,7 +922,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$('#install-addon-file-button').contents().last()[0].textContent = i18next.t('choose_addon_file');
 			});
 			
-			$('body').dimmer('show');
+			$('#content').dimmer('show');
 			sid = get_url_var('sid');
 			rest("GET", "/get_session", null,
 				function(data) {
@@ -977,166 +977,168 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		</div>
 	</div>
 	
-	<div style="padding-top: 5vw; padding-bottom: 5vw" class="ui container">
-		<h1 class="ui center aligned dividing header" data-i18n="title"></h1>
-	
-		<h2 class="ui header">
-			<i class="info icon"></i>
-			<div data-i18n="system_info" class="content">
-			</div>
-		</h2>
-		<div class="ui list" id="system-info">
-		</div>
-		<div class="ui orange basic button" data-i18n="reboot_system" onclick="show_reboot_dialog();"></div>
-		<div class="ui red basic button" data-i18n="shutdown_system" onclick="show_shutdown_dialog();"></div>
+	<div id="content" style="padding: 0; margin: 0; width: 100%">
+		<div style="padding-top: 5vw; padding-bottom: 5vw" class="ui container">
+			<h1 class="ui center aligned dividing header" data-i18n="title"></h1>
 		
-		<h2 class="ui header">
-			<i class="hdd outline icon"></i>
-			<div data-i18n="volumes" class="content">
+			<h2 class="ui header">
+				<i class="info icon"></i>
+				<div data-i18n="system_info" class="content">
+				</div>
+			</h2>
+			<div class="ui list" id="system-info">
 			</div>
-		</h2>
-		<div class="dimmable">
-			<div id="dimmer-volume-info" class="ui active inverted dimmer">
-				<div class="ui loader" data-i18n="loading"></div>
+			<div class="ui orange basic button" data-i18n="reboot_system" onclick="show_reboot_dialog();"></div>
+			<div class="ui red basic button" data-i18n="shutdown_system" onclick="show_shutdown_dialog();"></div>
+			
+			<h2 class="ui header">
+				<i class="hdd outline icon"></i>
+				<div data-i18n="volumes" class="content">
+				</div>
+			</h2>
+			<div class="dimmable">
+				<div id="dimmer-volume-info" class="ui active inverted dimmer">
+					<div class="ui loader" data-i18n="loading"></div>
+				</div>
+				<table id="volume-info" class="ui celled stackable table">
+					<thead>
+						<tr>
+							<th data-i18n="device"></th>
+							<th data-i18n="partition_number"></th>
+							<th data-i18n="filesystem_type"></th>
+							<th data-i18n="filesystem_label"></th>
+							<th data-i18n="mountpoint"></th>
+							<th class="right aligned" data-i18n="size"></th>
+							<th class="right aligned" data-i18n="used"></th>
+							<th class="right aligned" data-i18n="free"></th>
+							<th class="center aligned" data-i18n="action"></th>
+						</tr>
+					</thead>
+					<tbody>
+					</tbody>
+				</table>
 			</div>
-			<table id="volume-info" class="ui celled stackable table">
-				<thead>
-					<tr>
-						<th data-i18n="device"></th>
-						<th data-i18n="partition_number"></th>
-						<th data-i18n="filesystem_type"></th>
-						<th data-i18n="filesystem_label"></th>
-						<th data-i18n="mountpoint"></th>
-						<th class="right aligned" data-i18n="size"></th>
-						<th class="right aligned" data-i18n="used"></th>
-						<th class="right aligned" data-i18n="free"></th>
-						<th class="center aligned" data-i18n="action"></th>
-					</tr>
-				</thead>
-				<tbody>
-				</tbody>
-			</table>
-		</div>
-		
-		<h2 class="ui header">
-			<i class="settings icon"></i>
-			<div data-i18n="firmwares" class="content">
+			
+			<h2 class="ui header">
+				<i class="settings icon"></i>
+				<div data-i18n="firmwares" class="content">
+				</div>
+			</h2>
+			<div class="ui list" id="firmware-summary">
 			</div>
-		</h2>
-		<div class="ui list" id="firmware-summary">
-		</div>
-		
-		<div class="dimmable">
-			<div id="dimmer-firmware-info" class="ui active inverted dimmer">
-				<div class="ui loader" data-i18n="loading"></div>
+			
+			<div class="dimmable">
+				<div id="dimmer-firmware-info" class="ui active inverted dimmer">
+					<div class="ui loader" data-i18n="loading"></div>
+				</div>
+				<div style="width: 100%" class="ui action input">
+					<input id="install-firmware-url-input" type="text" placeholder="http://.../RaspberryMatic.zip"/>
+					<button id="install-firmware-url-button" class="ui green right labeled icon button" onclick="install_firmware($('#install-firmware-url-input').val());">
+						<i class="sign in icon"></i>
+						install
+					</button>
+				</div>
+				<table id="firmware-info" class="ui celled stackable table">
+					<thead>
+						<tr>
+							<th data-i18n="version"></th>
+							<th class="center aligned" data-i18n="available"></th>
+							<th class="center aligned" data-i18n="supported"></th>
+							<th class="center aligned" data-i18n="downloaded"></th>
+							<th class="center aligned" data-i18n="action"></th>
+						</tr>
+					</thead>
+					<tbody>
+					</tbody>
+				</table>
+				<div class="ui checkbox">
+					<input id="dryrun" type="checkbox">
+					<label data-i18n="perform_trial_run"></label>
+				</div>
+				<br />
+				<div class="ui checkbox">
+					<input id="delete-download-after-install" type="checkbox" checked="checked">
+					<label data-i18n="delete_download_after_install"></label>
+				</div>
+				<br />
+				<div class="ui checkbox">
+					<input id="reboot-after-install" type="checkbox" checked="checked">
+					<label data-i18n="reboot_after_install"></label>
+				</div>
 			</div>
+			
+			<h2 class="ui header">
+				<i class="plug icon"></i>
+				<div data-i18n="addons" class="content">
+				</div>
+			</h2>
+			<div class="dimmable">
+				<div id="dimmer-addon-info" class="ui active inverted dimmer">
+					<div class="ui loader" data-i18n="loading"></div>
+				</div>
+				<table id="addon-info" class="ui celled stackable table">
+					<thead>
+						<tr>
+							<th data-i18n="addon_name"></th>
+							<th data-i18n="installed_version"></th>
+							<th data-i18n="available_version"></th>
+							<th class="center aligned" data-i18n="action"></th>
+						</tr>
+					</thead>
+					<tbody>
+					</tbody>
+				</table>
+			</div>
+			
+			<h2 class="ui header">
+				<i class="cloud download icon"></i>
+				<div data-i18n="install_addon_from_url" class="content">
+				</div>
+			</h2>
 			<div style="width: 100%" class="ui action input">
-				<input id="install-firmware-url-input" type="text" placeholder="http://.../RaspberryMatic.zip"/>
-				<button id="install-firmware-url-button" class="ui green right labeled icon button" onclick="install_firmware($('#install-firmware-url-input').val());">
+				<input id="install-addon-url-input" type="text" placeholder="http://.../addon.tar.gz"/>
+				<button id="install-addon-url-button" class="ui green right labeled icon button" onclick="install_addon(null, $('#install-addon-url-input').val());">
 					<i class="sign in icon"></i>
 					install
 				</button>
 			</div>
-			<table id="firmware-info" class="ui celled stackable table">
-				<thead>
-					<tr>
-						<th data-i18n="version"></th>
-						<th class="center aligned" data-i18n="available"></th>
-						<th class="center aligned" data-i18n="supported"></th>
-						<th class="center aligned" data-i18n="downloaded"></th>
-						<th class="center aligned" data-i18n="action"></th>
-					</tr>
-				</thead>
-				<tbody>
-				</tbody>
-			</table>
-			<div class="ui checkbox">
-				<input id="dryrun" type="checkbox">
-				<label data-i18n="perform_trial_run"></label>
+			
+			<h2 class="ui header">
+				<i class="upload icon"></i>
+				<div data-i18n="install_addon_from_file" class="content">
+				</div>
+			</h2>
+			<div style="width: 100%" class="ui action input">
+				<input class="inputfile" id="install-addon-file-input" type="file" onchange="install_addon(null, null, this);" style="display: none;"/>
+				<label id="install-addon-file-button" for="install-addon-file-input" class="ui green button">
+					<i class="ui file archive outline icon"></i>
+					choose_addon_file
+				</label>
 			</div>
-			<br />
-			<div class="ui checkbox">
-				<input id="delete-download-after-install" type="checkbox" checked="checked">
-				<label data-i18n="delete_download_after_install"></label>
+			
+			<h2 class="ui header">
+				<i class="wifi icon"></i>
+				<div data-i18n="wlan" class="content">
+				</div>
+			</h2>
+			<div>
+				<div class="ui toggle checkbox">
+					<input type="checkbox" id="wlan-scan-checkbox" onclick="wlan_scan();">
+					<label data-i18n="wlan_scanning"></label>
+				</div>
+				<table id="wlan-list" class="ui celled stackable table">
+					<thead>
+						<tr>
+							<th data-i18n="wlan_ssid"></th>
+							<th data-i18n="wlan_connected"></th>
+							<th data-i18n="wlan_signal"></th>
+							<th class="center aligned" data-i18n="action"></th>
+						</tr>
+					</thead>
+					<tbody>
+					</tbody>
+				</table>
 			</div>
-			<br />
-			<div class="ui checkbox">
-				<input id="reboot-after-install" type="checkbox" checked="checked">
-				<label data-i18n="reboot_after_install"></label>
-			</div>
-		</div>
-		
-		<h2 class="ui header">
-			<i class="plug icon"></i>
-			<div data-i18n="addons" class="content">
-			</div>
-		</h2>
-		<div class="dimmable">
-			<div id="dimmer-addon-info" class="ui active inverted dimmer">
-				<div class="ui loader" data-i18n="loading"></div>
-			</div>
-			<table id="addon-info" class="ui celled stackable table">
-				<thead>
-					<tr>
-						<th data-i18n="addon_name"></th>
-						<th data-i18n="installed_version"></th>
-						<th data-i18n="available_version"></th>
-						<th class="center aligned" data-i18n="action"></th>
-					</tr>
-				</thead>
-				<tbody>
-				</tbody>
-			</table>
-		</div>
-		
-		<h2 class="ui header">
-			<i class="cloud download icon"></i>
-			<div data-i18n="install_addon_from_url" class="content">
-			</div>
-		</h2>
-		<div style="width: 100%" class="ui action input">
-			<input id="install-addon-url-input" type="text" placeholder="http://.../addon.tar.gz"/>
-			<button id="install-addon-url-button" class="ui green right labeled icon button" onclick="install_addon(null, $('#install-addon-url-input').val());">
-				<i class="sign in icon"></i>
-				install
-			</button>
-		</div>
-		
-		<h2 class="ui header">
-			<i class="upload icon"></i>
-			<div data-i18n="install_addon_from_file" class="content">
-			</div>
-		</h2>
-		<div style="width: 100%" class="ui action input">
-			<input class="inputfile" id="install-addon-file-input" type="file" onchange="install_addon(null, null, this);" style="display: none;"/>
-			<label id="install-addon-file-button" for="install-addon-file-input" class="ui green button">
-				<i class="ui file archive outline icon"></i>
-				choose_addon_file
-			</label>
-		</div>
-		
-		<h2 class="ui header">
-			<i class="wifi icon"></i>
-			<div data-i18n="wlan" class="content">
-			</div>
-		</h2>
-		<div>
-			<div class="ui toggle checkbox">
-				<input type="checkbox" id="wlan-scan-checkbox" onclick="wlan_scan();">
-				<label data-i18n="wlan_scanning"></label>
-			</div>
-			<table id="wlan-list" class="ui celled stackable table">
-				<thead>
-					<tr>
-						<th data-i18n="wlan_ssid"></th>
-						<th data-i18n="wlan_connected"></th>
-						<th data-i18n="wlan_signal"></th>
-						<th class="center aligned" data-i18n="action"></th>
-					</tr>
-				</thead>
-				<tbody>
-				</tbody>
-			</table>
 		</div>
 	</div>
 	
