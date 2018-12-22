@@ -1521,6 +1521,11 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 								} else {
 									# Not a direct download link
 									set data3 [exec /usr/bin/wget --no-check-certificate --quiet --output-document=- "${download_url}"]
+									write_log 4 $data3
+									if {[regexp {meta.*http-equiv.*refresh.*url=(.*)['"][\s/>]} $data3 match href]} {
+										set download_url $href
+										set data3 [exec /usr/bin/wget --no-check-certificate --quiet --output-document=- "${href}"]
+									}
 									set best_prio 0
 									set best_href ""
 									regsub -all {\.} $available_version "\\." regex_version
@@ -1530,6 +1535,7 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 									regsub -all {<a} $oneline "\n<a" alines
 									foreach d [split $alines "\n"] {
 										if {[regexp {<a[^>]*\shref\s*=\s*"([^"]+)"[^>]*>(.*)</a} $d match href text]} {
+											#write_log 4 "Processing link ${href} - ${text}"
 											set filename ""
 											if {[regexp {\s*(\S.+\.tar.gz)\s*} $href match fn]} {
 												set filename $fn
