@@ -54,32 +54,18 @@ proc check_session {sid} {
 	return 0
 }
 
-proc new_session {} {
-	set request [::http::geturl "http://127.0.0.1/login.htm"]
-	set location [get_http_header $request "location"]
-	::http::cleanup $request
-	if {![regexp {sid=@([0-9a-zA-Z]{10})@} $location match sid]} {
-		error "Too many sessions" "Service Unavailable" 503
-	}
-	return $sid
-}
-
 proc login {username password} {
-	set sid [new_session]
-	
-	set request [::http::geturl "http://127.0.0.1/login.htm?sid=@$sid@" -query [::http::formatQuery tbUsername $username tbPassword $password]]
+	set request [::http::geturl "http://127.0.0.1/login.htm" -query [::http::formatQuery tbUsername $username tbPassword $password]]
 	set code [::http::code $request]
 	set location [get_http_header $request "location"]
 	::http::cleanup $request
 	
-	if {[string first "500" $code] != -1} {
-		rega_script "system.ClearSessionID(\"$sid\");"
-		error "Invalid session" "Internal server error" 500
+	if {[string first "error" $location] != -1} {
+		error "Invalid username oder password" "Unauthorized" 401
 	}
 	
-	if {[string first "error" $location] != -1} {
-		rega_script "system.ClearSessionID(\"$sid\");"
-		error "Invalid username oder password" "Unauthorized" 401
+	if {![regexp {sid=@([0-9a-zA-Z]{10})@} $location match sid]} {
+		error "Too many sessions" "Service Unavailable" 503
 	}
 	return $sid
 }
