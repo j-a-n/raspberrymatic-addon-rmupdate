@@ -1469,10 +1469,18 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 								close $cfd
 								set firstline [lindex [split $cgi_data "\n"] 0]
 								regexp {^#!(.*)$} $firstline match cgi_interpreter
+								set cgi_interpreter [string map {"/usr/bin/env " ""} $cgi_interpreter]
 								set addons(${id}::cgi) $cgi
 								set addons(${id}::cgi_interpreter) $cgi_interpreter
 								set ::env(QUERY_STRING) ""
-								set available_version [lindex [split [string map {"\r" ""} [exec $cgi_interpreter "$cgi"]] "\n\n"] end]
+								write_log 4 "exec cgi: ${cgi}"
+								if { [catch {
+									set tmp [string map {"\r" ""} [exec $cgi_interpreter "$cgi"]]
+								} errormsg] } {
+									write_log 2 "Error executing cgi ${cgi}: ${errormsg}"
+								}
+								set available_version [lindex [split $tmp "\n\n"] end]
+								write_log 4 "available_version of ${id}: ${available_version}"
 								#set available_version [exec /usr/bin/wget "http://localhost${value}" --quiet --output-document=-]
 								set addons(${id}::available_version) $available_version
 							}
@@ -1489,6 +1497,9 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 			set tmp [split $key "::"]
 			set addon_id [lindex $tmp 0]
 			set opt [lindex $tmp 2]
+			#if {$addon_id != "redmatic"} {
+			#	continue
+			#}
 			if {$opt == "update" && $addons($key) != "" && $addons(${addon_id}::available_version) != ""} {
 				set available_version $addons(${addon_id}::available_version)
 				#set url "http://localhost/$addons($key)?cmd=download&version=${available_version}"
