@@ -29,7 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<link rel="stylesheet" href="css/semantic-2.4.2.min.css" />
 	<style>
 	</style>
-	
+
 	<title data-i18n="title">RaspberryMatic Update Addon</title>
 	<script>
 		var language = navigator.language || navigator.userLanguage;
@@ -40,7 +40,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		var wlanScanTimer;
 		var moving_userfs_to_device = false;
 		var sid = null;
-		
+
 		function get_url_vars() {
 			var vars = {};
 			var params = window.location.search.substring(1).split('&');
@@ -52,18 +52,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			}
 			return vars;
 		}
-		
+
 		function get_url_var(name) {
 			return get_url_vars()[name];
 		}
-		
+
 		function display_message(type, text, millis) {
 			clear_message();
 			$('#message').contents().last()[0].textContent = text;
 			$('#message').attr('class', 'ui ' + type + ' message visible');
 			message_timer_id = setTimeout(clear_message, millis);
 		}
-		
+
 		function clear_message() {
 			if (message_timer_id != null) {
 				clearTimeout(message_timer_id);
@@ -72,7 +72,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			$('#message').contents().last()[0].textContent = '';
 			$('#message').attr('class', 'ui message hidden');
 		}
-		
+
 		function default_error_callback(xhr, ajaxOptions, thrownError) {
 			console.error(xhr);
 			err = thrownError;
@@ -86,7 +86,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			}
 			display_message('error', i18next.t('error_occurred', {'error': err}), 10000);
 		}
-		
+
 		function rest(method, path, data, success_callback, error_callback) {
 			if (!error_callback) {
 				error_callback = default_error_callback
@@ -103,7 +103,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				error: error_callback
 			});
 		}
-		
+
 		function show_reboot_dialog() {
 			$('#modal-reboot').modal({
 				onDeny: function(){
@@ -116,9 +116,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					return true;
 				}
 			})
-			.modal('show');
+					.modal('show');
 		}
-		
+
 		function show_shutdown_dialog() {
 			$('#modal-shutdown').modal({
 				onDeny: function(){
@@ -131,9 +131,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					return true;
 				}
 			})
-			.modal('show');
+					.modal('show');
 		}
-		
+
 		function disable_buttons() {
 			$('#install-latest-firmware-button').addClass('disabled');
 			$('#install-firmware-url-button').addClass('disabled');
@@ -144,7 +144,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			$('#install-addon-url-button').addClass('disabled');
 			$('#install-addon-file-button').addClass('disabled');
 		}
-		
+
 		function reset_buttons() {
 			$('#install-latest-firmware-button').removeClass('loading');
 			$('#install-latest-firmware-button').removeClass('disabled');
@@ -162,7 +162,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			$('#install-addon-file-button').removeClass('disabled');
 			$('#install-addon-file-button').removeClass('loading');
 		}
-		
+
 		function set_running_installation(installation_info, error) {
 			//console.info("set_running_installation: |" + installation_info + "|" + running_installation + "|" + error);
 			var firmware_regex = /firmware\s+(.*)/i;
@@ -181,9 +181,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$('#log-content').scrollTop($('#log-content').prop("scrollHeight"));
 				reset_buttons();
 			}
-			
+
 			running_installation = installation_info;
-			
+
 			if (running_installation) {
 				var match = firmware_regex.exec(running_installation);
 				if (match != null) {
@@ -195,7 +195,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 			}
 		}
-		
+
 		function update_install_log() {
 			rest("GET", "/get_running_installation", null, function(installation_info) {
 				if (running_installation) {
@@ -225,16 +225,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 			});
 		}
-		
+
 		function delete_firmware_image(version) {
 			rest("POST", "/delete_firmware_image", {"version":version},
-				function(data) {
-					display_message('success', i18next.t('delete_firmware_img_success', {'version': version}), 5000);
-					get_firmware_info();
-				}
+					function(data) {
+						display_message('success', i18next.t('delete_firmware_img_success', {'version': version}), 5000);
+						get_firmware_info();
+					}
 			);
 		}
-		
+
 		function install_firmware(download_url, version) {
 			$('#log-content').html('');
 			$('#install-progress').progress("reset");
@@ -252,25 +252,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				if (!download_url) download_url = "";
 				if (!version) version = "";
 				rest("POST", "/start_install_firmware", {"download_url": download_url, "version":version, "language": language, "reboot":reboot, "dryrun":dryrun, "keep_download": keep_download},
-					function(data) {
-						// We are not expecting a response
-					},
-					function(xhr, ajaxOptions, thrownError) {
-						console.error("Firmware installation error: " + thrownError + ": " + xhr.responseText);
-						//$('#modal-log').modal('hide');
-						set_running_installation("", thrownError + ": " + xhr.responseText);
-					}
+						function(data) {
+							// We are not expecting a response
+						},
+						function(xhr, ajaxOptions, thrownError) {
+							console.error("Firmware installation error: " + thrownError + ": " + xhr.responseText);
+							//$('#modal-log').modal('hide');
+							set_running_installation("", thrownError + ": " + xhr.responseText);
+						}
 				);
 			}
 			setTimeout(update_install_log, 1000);
 		}
-		
+
 		function install_latest_firmware() {
 			if (latest_firmware && latest_firmware != '?') {
 				install_firmware(null, latest_firmware);
 			}
 		}
-		
+
 		function get_firmware_info() {
 			$('#dimmer-firmware-info').addClass('active');
 			rest("GET", "/get_firmware_info", null, function(data) {
@@ -281,7 +281,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						latest_firmware = fw.version;
 						latest_firmware_supported = fw.supported;
 					}
-					if (fw.installed) current_firmware = fw.version;
+					if (fw.installed) {
+						current_firmware = fw.version;
+						if (current_firmware.length <= 8) {
+							//ccu3 and not raspberrymatic because of short version string
+							$('#firmware_header').hide();
+							$('#firmware_summary').hide();
+							$('#firmware_list').hide();
+						}
+					}
 					var color = 'yellow';
 					if (fw.latest) color = 'green';
 					if (fw.installed) color = 'gray';
@@ -297,7 +305,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					bdelete.click(function() {
 						delete_firmware_image(this.getAttribute('data-delete-firmware-version'));
 					});
-					
+
 					var available = (fw.url ? 'checked=""' : '')
 					var supported = (fw.supported ? 'checked=""' : '')
 					var downloaded = (fw.image ? 'checked=""' : '')
@@ -305,11 +313,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					if (fw.installed) cls = ' class="warning"';
 					if (fw.latest) cls = ' class="positive"';
 					$("#firmware-info tbody").append($('<tr' + cls + '>').append(
-						$('<td>').append($('<a>', {text: fw.version, title: i18next.t('open_release_info'), href: fw.info_url, target: "_blank"})),
-						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+available+'>'),$('<label></label>'))),
-						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+supported+'>'),$('<label></label>'))),
-						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+downloaded+'>'),$('<label></label>'))),
-						$('<td class="center aligned">').append(bdelete, binstall)
+							$('<td>').append($('<a>', {text: fw.version, title: i18next.t('open_release_info'), href: fw.info_url, target: "_blank"})),
+							$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+available+'>'),$('<label></label>'))),
+							$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+supported+'>'),$('<label></label>'))),
+							$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+downloaded+'>'),$('<label></label>'))),
+							$('<td class="center aligned">').append(bdelete, binstall)
 					));
 				});
 				var color = "#d01919";
@@ -318,32 +326,32 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 				$("#firmware-summary").empty();
 				$("#firmware-summary").append(
-					$('<div class="ui item">').html(i18next.t('current_installed_version') + ': <span style="color:'+ color +'">' + current_firmware + '</span>'),
-					$('<div class="ui item">').html(i18next.t('latest_available_version') + ': ' + latest_firmware)
+						$('<div class="ui item">').html(i18next.t('current_installed_version') + ': <span style="color:'+ color +'">' + current_firmware + '</span>'),
+						$('<div class="ui item">').html(i18next.t('latest_available_version') + ': ' + latest_firmware)
 				);
 				if (latest_firmware_supported && current_firmware != latest_firmware) {
 					$("#firmware-summary").append(
-						$('<div id="install-latest-firmware-button" class="ui green basic button" style="margin-top:20px; margin-bottom:20px;">').click(install_latest_firmware).append($('<i class="sign in icon">'), i18next.t('install_latest_firmware'))
+							$('<div id="install-latest-firmware-button" class="ui green basic button" style="margin-top:20px; margin-bottom:20px;">').click(install_latest_firmware).append($('<i class="sign in icon">'), i18next.t('install_latest_firmware'))
 					);
 				}
-				
+
 				rest("GET", "/get_running_installation", null, function(installation_info) {
 					set_running_installation(installation_info);
 				});
 				$('#dimmer-firmware-info').removeClass('active');
 			});
 		}
-		
+
 		function get_system_info() {
 			rest("GET", "/get_system_info", null, function(data) {
 				$("#system-info").empty();
 				$("#system-info").append(
-					$('<div class="item">').html(i18next.t('system_type', {'system_type': data.system_type})),
-					$('<div class="item">').html(i18next.t('uptime', {'uptime': data.uptime}))
+						$('<div class="item">').html(i18next.t('system_type', {'system_type': data.system_type})),
+						$('<div class="item">').html(i18next.t('uptime', {'uptime': data.uptime}))
 				);
 			});
 		}
-		
+
 		function format_size(size) {
 			if (size < 0) {
 				return '';
@@ -358,7 +366,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				return (parseInt(size)/1024).toFixed(1) + ' KB'
 			}
 		}
-		
+
 		function get_partitions() {
 			$('#dimmer-volume-info').addClass('active');
 			rest("GET", "/get_partitions", null, function(data) {
@@ -384,11 +392,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				for (var disk_device in disks) {
 					parts = Object.keys(disks[disk_device].partitions);
 					parts.sort();
-					
+
 					for (var part in parts) {
 						var partition = disks[disk_device].partitions[part];
 						var is_sys_partition = (partition.filesystem_label == 'userfs' || partition.filesystem_label == 'bootfs' || partition.filesystem_label == 'rootfs' || partition.filesystem_label == 'rootfs1' || partition.filesystem_label == 'rootfs2')
-						
+
 						var menu_items = [];
 						var skip_dev = false;
 						if (disks[disk_device].userfs_on_disk) {
@@ -400,7 +408,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						else if (is_sys_partition && (partition.partition > 0)) {
 							skip_dev = true;
 						}
-						
+
 						if (! skip_dev) {
 							var device = partition.disk_device;
 							var label = i18next.t('use_disk_for_userfs');
@@ -418,23 +426,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 										display_message('warning', i18next.t('moving_userfs'), 300000);
 										if (!moving_userfs_to_device) {
 											rest('POST', '/move_userfs_to_device', {"target_device":target_device},
-												function(data) {
-													moving_userfs_to_device = false;
-													display_message('success', i18next.t('userfs_moved'), 120000);
-													rest('POST', '/system_reboot');
-												},
-												function(xhr, ajaxOptions, thrownError) {
-													moving_userfs_to_device = false;
-													default_error_callback(xhr, ajaxOptions, thrownError);
-												}
+													function(data) {
+														moving_userfs_to_device = false;
+														display_message('success', i18next.t('userfs_moved'), 120000);
+														rest('POST', '/system_reboot');
+													},
+													function(xhr, ajaxOptions, thrownError) {
+														moving_userfs_to_device = false;
+														default_error_callback(xhr, ajaxOptions, thrownError);
+													}
 											);
 										}
 										moving_userfs_to_device = true;
 									}
 								})
-								.modal('show');
+										.modal('show');
 							}));
-							
+
 							if (partition.partition == 0) {
 								menu_items.push($('<a class="item">').append(i18next.t('delete_partition_table')).attr('data-device', device).click(function() {
 									var device = this.getAttribute('data-device');
@@ -444,41 +452,41 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 										},
 										onApprove: function() {
 											rest('POST', '/delete_partition_table', {"device":device},
-												function(data) {
-													display_message('success', i18next.t('partiton_table_deleted'), 120000);
-													get_partitions();
-												},
-												function(xhr, ajaxOptions, thrownError) {
-													default_error_callback(xhr, ajaxOptions, thrownError);
-													get_partitions();
-												}
+													function(data) {
+														display_message('success', i18next.t('partiton_table_deleted'), 120000);
+														get_partitions();
+													},
+													function(xhr, ajaxOptions, thrownError) {
+														default_error_callback(xhr, ajaxOptions, thrownError);
+														get_partitions();
+													}
 											);
 										}
 									})
-									.modal('show');
+											.modal('show');
 								}));
 							}
 						}
 						var menu = null;
 						if (menu_items.length > 0) {
 							menu = $('<div class="ui compact menu" style="min-height:28px; max-height:28px;">').append(
-								$('<div class="ui floating dropdown top right item">').append(
-									i18next.t('action'),
-									$('<i class="dropdown icon">'),
-									$('<div class="menu">').append(menu_items)
-								)
+									$('<div class="ui floating dropdown top right item">').append(
+											i18next.t('action'),
+											$('<i class="dropdown icon">'),
+											$('<div class="menu">').append(menu_items)
+									)
 							)
 						}
-						
+
 						if (partition.partition == 0) {
 							var st = "border:none; border-top: 2px solid #aaafaf";
 							$("#volume-info tbody").append($('<tr style="background: #f8ffff;">').append(
-								$('<td style="'+st+'" class="top aligned" rowspan="' + parts.length + '">')
-									.append($('<label>' + partition.model + '</label><br /><strong>' + partition.disk_device + '</strong>')),
-								$('<td style="'+st+'" class="center aligned" colspan="4">'),
-								$('<td class="right aligned" style="'+st+'">').append($('<label>' + format_size(partition.size) + '</label>')),
-								$('<td style="'+st+'" colspan="2">'),
-								$('<td style="'+st+'" class="center aligned">').append(menu)
+									$('<td style="'+st+'" class="top aligned" rowspan="' + parts.length + '">')
+											.append($('<label>' + partition.model + '</label><br /><strong>' + partition.disk_device + '</strong>')),
+									$('<td style="'+st+'" class="center aligned" colspan="4">'),
+									$('<td class="right aligned" style="'+st+'">').append($('<label>' + format_size(partition.size) + '</label>')),
+									$('<td style="'+st+'" colspan="2">'),
+									$('<td style="'+st+'" class="center aligned">').append(menu)
 							));
 						} else {
 							var usage = '';
@@ -489,14 +497,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							var used = (partition.filesystem_used == -1) ? '' : format_size(partition.filesystem_used);
 							var free = (partition.filesystem_used == -1) ? '' : format_size(partition.size-partition.filesystem_used);
 							$("#volume-info tbody").append($('<tr>').append(
-								$('<td style="border-left: 1px solid rgba(34,36,38,.1)">').append($('<label>' + partition.partition + '</label>')),
-								$('<td>').append($('<label>' + partition.filesystem_type + '</label>')),
-								$('<td>').append($('<label '+st+'>' + partition.filesystem_label + '</label>')),
-								$('<td>').append($('<label '+st+'>' + partition.mountpoint + '</label>')),
-								$('<td class="right aligned">').append($('<label>' + format_size(partition.size) + '</label>')),
-								$('<td class="right aligned">').append($('<label>' + used + '</label>')),
-								$('<td class="right aligned">').append($('<label>' + free + '</label>')),
-								$('<td class="center aligned">').append(menu)
+									$('<td style="border-left: 1px solid rgba(34,36,38,.1)">').append($('<label>' + partition.partition + '</label>')),
+									$('<td>').append($('<label>' + partition.filesystem_type + '</label>')),
+									$('<td>').append($('<label '+st+'>' + partition.filesystem_label + '</label>')),
+									$('<td>').append($('<label '+st+'>' + partition.mountpoint + '</label>')),
+									$('<td class="right aligned">').append($('<label>' + format_size(partition.size) + '</label>')),
+									$('<td class="right aligned">').append($('<label>' + used + '</label>')),
+									$('<td class="right aligned">').append($('<label>' + free + '</label>')),
+									$('<td class="center aligned">').append(menu)
 							));
 						}
 					}
@@ -505,7 +513,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$('#dimmer-volume-info').removeClass('active');
 			});
 		}
-		
+
 		function install_addon(addon_id, download_url, file_input) {
 			if (!running_installation) {
 				display_message('info', i18next.t('installing_addon', {'addon_id': addon_id}), 180000);
@@ -549,7 +557,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					$('#install-addon-file-input').val('');
 					default_error_callback(xhr, ajaxOptions, thrownError);
 				}
-				
+
 				if (file_input) {
 					$.ajax({
 						url: 'rest.cgi?sid=' + sid + '&path=/install_addon_archive',
@@ -563,33 +571,33 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 				else {
 					rest("POST", "/install_addon", {"addon_id":addon_id, "download_url":download_url},
-						success_callback, error_callback
+							success_callback, error_callback
 					);
 				}
 			}
 		}
-		
+
 		function uninstall_addon(addon_id) {
 			if (!running_installation) {
 				display_message('info', i18next.t('uninstalling_addon', {'addon_id': addon_id}), 180000);
 				disable_buttons();
 				$('[data-uninstall-addon-id="' + addon_id + '"]').addClass('loading');
 				rest("POST", "/uninstall_addon", {"addon_id":addon_id},
-					function(data) {
-						//console.info(data);
-						display_message('success', data, 5000);
-						reset_buttons();
-						$('#tr-' + addon_id).remove();
-					},
-					function(xhr, ajaxOptions, thrownError) {
-						console.error("Addon installation error: " + thrownError + ": " + xhr.responseText);
-						reset_buttons();
-						default_error_callback(xhr, ajaxOptions, thrownError);
-					}
+						function(data) {
+							//console.info(data);
+							display_message('success', data, 5000);
+							reset_buttons();
+							$('#tr-' + addon_id).remove();
+						},
+						function(xhr, ajaxOptions, thrownError) {
+							console.error("Addon installation error: " + thrownError + ": " + xhr.responseText);
+							reset_buttons();
+							default_error_callback(xhr, ajaxOptions, thrownError);
+						}
 				);
 			}
 		}
-		
+
 		function get_addon_info() {
 			$('#dimmer-addon-info').addClass('active');
 			rest("GET", "/get_addon_info", null, function(data) {
@@ -597,29 +605,29 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				data.forEach(function(addon) {
 					var color = 'gray';
 					if (addon.available_version && (addon.version != addon.available_version)) color = 'green';
-					
+
 					var disabled = ((addon.available_version && addon.download_url) ? '' : 'disabled');
 					var bupdate = $('<div class="ui '+ color +' basic '+ disabled +' button" id="button-update-' + addon.id + '">')
-						.append($('<i class="sign in icon">'), (addon.version == addon.available_version) ? i18next.t('reinstall') : i18next.t('update'));
+							.append($('<i class="sign in icon">'), (addon.version == addon.available_version) ? i18next.t('reinstall') : i18next.t('update'));
 					if (!disabled) {
 						bupdate.attr('data-update-addon-id', addon.id).attr('data-update-addon-available-version', addon.available_version)
 					}
 					bupdate.click(function() {
 						install_addon(this.getAttribute('data-update-addon-id'));
 					});
-					
+
 					disabled = ((addon.config_url) ? '' : 'disabled');
 					var bconfig = $('<div class="ui blue basic '+ disabled +' button">')
-						.attr('data-addon-config-url', addon.config_url)
-						.append($('<i class="setting icon">'), i18next.t('open_config'));
+							.attr('data-addon-config-url', addon.config_url)
+							.append($('<i class="setting icon">'), i18next.t('open_config'));
 					bconfig.click(function() {
 						var win = window.open(this.getAttribute('data-addon-config-url') + window.location.search, '_blank');
 						win.focus();
 					});
-					
+
 					var buninstall = $('<div class="ui orange basic button">')
-						.attr('data-uninstall-addon-id', addon.id)
-						.append($('<i class="remove icon">'), i18next.t('uninstall'));
+							.attr('data-uninstall-addon-id', addon.id)
+							.append($('<i class="remove icon">'), i18next.t('uninstall'));
 					buninstall.click(function() {
 						var addon_id = this.getAttribute('data-uninstall-addon-id');
 						$('#modal-uninstall-addon').modal({
@@ -631,16 +639,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 								return true;
 							}
 						})
-						.modal('show');
+								.modal('show');
 					});
-					
+
 					var cls = (((!addon.available_version) || (addon.version == addon.available_version)) ? "positive" : "warning");
 					var available_version = ((addon.available_version) ? addon.available_version : "?");
 					$("#addon-info tbody").append($('<tr class="' + cls + '" id="tr-' + addon.id + '">').append(
-						$('<td>').append($('<label>' + addon.name + '</label>')),
-						$('<td>').append($('<label id="label-version-' + addon.id + '">' + addon.version + '</label>')),
-						$('<td>').append($('<label id="label-available-version-' + addon.id + '">' + available_version + '</label>')),
-						$('<td class="center aligned">').append(bupdate, bconfig, buninstall)
+							$('<td>').append($('<label>' + addon.name + '</label>')),
+							$('<td>').append($('<label id="label-version-' + addon.id + '">' + addon.version + '</label>')),
+							$('<td>').append($('<label id="label-available-version-' + addon.id + '">' + available_version + '</label>')),
+							$('<td class="center aligned">').append(bupdate, bconfig, buninstall)
 					));
 				});
 				$('#dimmer-addon-info').removeClass('active');
@@ -650,48 +658,48 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 			});
 		}
-		
+
 		function wlan_scan(force) {
 			if (!force && !$('#wlan-scan-checkbox').prop("checked")) {
 				return;
 			}
 			rest("GET", "/wlan_scan", null, function(data) {
-				$('#wlan-list tbody').empty();
-				data.forEach(function(wlan) {
-					var cls = (wlan.connected == "1") ? "disabled" : "";
-					var bconnect = $('<div class="ui green basic button ' + cls + '">')
-						.attr('data-ssid', wlan.ssid)
-						.append($('<i class="sign in icon">'), i18next.t('connect'));
-					bconnect.click(function() {
-						$('#form-connect-wlan').form('clear');
-						$('#form-connect-wlan').attr('data-ssid', this.getAttribute('data-ssid'));
-						$('#modal-connect-wlan').modal('show');
+						$('#wlan-list tbody').empty();
+						data.forEach(function(wlan) {
+							var cls = (wlan.connected == "1") ? "disabled" : "";
+							var bconnect = $('<div class="ui green basic button ' + cls + '">')
+									.attr('data-ssid', wlan.ssid)
+									.append($('<i class="sign in icon">'), i18next.t('connect'));
+							bconnect.click(function() {
+								$('#form-connect-wlan').form('clear');
+								$('#form-connect-wlan').attr('data-ssid', this.getAttribute('data-ssid'));
+								$('#modal-connect-wlan').modal('show');
+							});
+
+							cls = (wlan.connected == "1") ? "" : "disabled";
+							var bdisconnect = $('<div class="ui orange basic button ' + cls + '">')
+									.attr('data-ssid', wlan.ssid)
+									.append($('<i class="delete icon">'), i18next.t('disconnect'));
+							bdisconnect.click(function() {
+								$('.button[data-ssid]').addClass('loading');
+								rest("POST", "/wlan_disconnect");
+							});
+							var connected_checked = ((wlan.connected == "1") ? 'checked=""' : '')
+							cls = (wlan.connected == "1") ? "positive" : "";
+							$("#wlan-list tbody").append($('<tr class="' + cls + '">').append(
+									$('<td>').append($('<label>' + wlan.ssid + '</label>')),
+									$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" ' + connected_checked + '>'),$('<label></label>'))),
+									$('<td>').append($('<label>' + wlan.signal + '</label>')),
+									$('<td class="center aligned">').append(bconnect, bdisconnect)
+							));
+						});
+						wlanScanTimer = setTimeout(function(){ wlan_scan(); }, 5000);
+					},
+					function(xhr, ajaxOptions, thrownError) {
+						wlanScanTimer = setTimeout(function(){ wlan_scan(); }, 5000);
 					});
-					
-					cls = (wlan.connected == "1") ? "" : "disabled";
-					var bdisconnect = $('<div class="ui orange basic button ' + cls + '">')
-						.attr('data-ssid', wlan.ssid)
-						.append($('<i class="delete icon">'), i18next.t('disconnect'));
-					bdisconnect.click(function() {
-						$('.button[data-ssid]').addClass('loading');
-						rest("POST", "/wlan_disconnect");
-					});
-					var connected_checked = ((wlan.connected == "1") ? 'checked=""' : '')
-					cls = (wlan.connected == "1") ? "positive" : "";
-					$("#wlan-list tbody").append($('<tr class="' + cls + '">').append(
-						$('<td>').append($('<label>' + wlan.ssid + '</label>')),
-						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" ' + connected_checked + '>'),$('<label></label>'))),
-						$('<td>').append($('<label>' + wlan.signal + '</label>')),
-						$('<td class="center aligned">').append(bconnect, bdisconnect)
-					));
-				});
-				wlanScanTimer = setTimeout(function(){ wlan_scan(); }, 5000);
-			},
-			function(xhr, ajaxOptions, thrownError) {
-				wlanScanTimer = setTimeout(function(){ wlan_scan(); }, 5000);
-			});
 		}
-		
+
 		function init() {
 			$('#content').dimmer('hide');
 			var form_config = {
@@ -715,7 +723,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 			};
 			$('#form-connect-wlan').form(form_config);
-			
+
 			rest("GET", "/version", null, function(version) {
 				document.title = document.title + " " + version;
 			});
@@ -730,7 +738,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			get_addon_info();
 			wlan_scan(true);
 		}
-		
+
 		$(document).ready(function() {
 			i18next.init({
 				lng: language,
@@ -921,344 +929,344 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				$('#install-firmware-url-button').contents().last()[0].textContent = i18next.t('install');
 				$('#install-addon-file-button').contents().last()[0].textContent = i18next.t('choose_addon_file');
 			});
-			
+
 			$('#content').dimmer('show');
 			sid = get_url_var('sid');
 			rest("GET", "/get_session", null,
-				function(data) {
-					init();
-				},
-				function(xhr, ajaxOptions, thrownError) {
-					if (xhr.status == 401) {
-						var form_config = {
-							on: 'blur',
-							fields: {
-								username: {
-									identifier: 'username'
-								},
-								password: {
-									identifier: 'password'
-								}
-							},
-							onSuccess: function(event, fields) {
-								event.preventDefault();
-								var username = $(event.currentTarget).form('get value', 'username');
-								var password = $(event.currentTarget).form('get value', 'password');
-								rest("POST", "/login", {"username": username, "password": password},
-									function(data) {
-										window.location.href = window.location.href.replace(/\?.*/, '') + '?sid=@' + data + '@';
+					function(data) {
+						init();
+					},
+					function(xhr, ajaxOptions, thrownError) {
+						if (xhr.status == 401) {
+							var form_config = {
+								on: 'blur',
+								fields: {
+									username: {
+										identifier: 'username'
 									},
-									function(xhr, ajaxOptions, thrownError) {
-										default_error_callback(xhr, ajaxOptions, thrownError);
+									password: {
+										identifier: 'password'
 									}
-								);
-							}
-						};
-						$('#form-login').form(form_config);
-						$('#modal-login').modal('show');
+								},
+								onSuccess: function(event, fields) {
+									event.preventDefault();
+									var username = $(event.currentTarget).form('get value', 'username');
+									var password = $(event.currentTarget).form('get value', 'password');
+									rest("POST", "/login", {"username": username, "password": password},
+											function(data) {
+												window.location.href = window.location.href.replace(/\?.*/, '') + '?sid=@' + data + '@';
+											},
+											function(xhr, ajaxOptions, thrownError) {
+												default_error_callback(xhr, ajaxOptions, thrownError);
+											}
+									);
+								}
+							};
+							$('#form-login').form(form_config);
+							$('#modal-login').modal('show');
+						}
+						else {
+							default_error_callback(xhr, ajaxOptions, thrownError);
+						}
 					}
-					else {
-						default_error_callback(xhr, ajaxOptions, thrownError);
-					}
-				}
 			);
 		});
-		
+
 	</script>
 </head>
 <body>
-	<div style="position: fixed; left: 50%; top: 2vh; z-index: 2000">
-		<div style="position: relative; left: -50%;">
-			<div class="ui container">
-				<div id="message" class="ui message hidden" style="margin-left: 100px; margin-right: 100px; min-height: 50px; min-width: 340px">
-					<i class="close icon" onclick="clear_message();"></i>
-				</div>
+<div style="position: fixed; left: 50%; top: 2vh; z-index: 2000">
+	<div style="position: relative; left: -50%;">
+		<div class="ui container">
+			<div id="message" class="ui message hidden" style="margin-left: 100px; margin-right: 100px; min-height: 50px; min-width: 340px">
+				<i class="close icon" onclick="clear_message();"></i>
 			</div>
 		</div>
 	</div>
-	
-	<div id="content" style="padding: 0; margin: 0; width: 100%">
-		<div style="padding-top: 5vw; padding-bottom: 5vw" class="ui container">
-			<h1 class="ui center aligned dividing header" data-i18n="title"></h1>
-		
-			<h2 class="ui header">
-				<i class="info icon"></i>
-				<div data-i18n="system_info" class="content">
-				</div>
-			</h2>
-			<div class="ui list" id="system-info">
+</div>
+
+<div id="content" style="padding: 0; margin: 0; width: 100%">
+	<div style="padding-top: 5vw; padding-bottom: 5vw" class="ui container">
+		<h1 class="ui center aligned dividing header" data-i18n="title"></h1>
+
+		<h2 class="ui header">
+			<i class="info icon"></i>
+			<div data-i18n="system_info" class="content">
 			</div>
-			<div class="ui orange basic button" data-i18n="reboot_system" onclick="show_reboot_dialog();"></div>
-			<div class="ui red basic button" data-i18n="shutdown_system" onclick="show_shutdown_dialog();"></div>
-			
-			<h2 class="ui header">
-				<i class="hdd outline icon"></i>
-				<div data-i18n="volumes" class="content">
-				</div>
-			</h2>
-			<div class="dimmable">
-				<div id="dimmer-volume-info" class="ui active inverted dimmer">
-					<div class="ui loader" data-i18n="loading"></div>
-				</div>
-				<table id="volume-info" class="ui celled stackable table">
-					<thead>
-						<tr>
-							<th data-i18n="device"></th>
-							<th data-i18n="partition_number"></th>
-							<th data-i18n="filesystem_type"></th>
-							<th data-i18n="filesystem_label"></th>
-							<th data-i18n="mountpoint"></th>
-							<th class="right aligned" data-i18n="size"></th>
-							<th class="right aligned" data-i18n="used"></th>
-							<th class="right aligned" data-i18n="free"></th>
-							<th class="center aligned" data-i18n="action"></th>
-						</tr>
-					</thead>
-					<tbody>
-					</tbody>
-				</table>
+		</h2>
+		<div class="ui list" id="system-info">
+		</div>
+		<div class="ui orange basic button" data-i18n="reboot_system" onclick="show_reboot_dialog();"></div>
+		<div class="ui red basic button" data-i18n="shutdown_system" onclick="show_shutdown_dialog();"></div>
+
+		<h2 class="ui header">
+			<i class="hdd outline icon"></i>
+			<div data-i18n="volumes" class="content">
 			</div>
-			
-			<h2 class="ui header">
-				<i class="settings icon"></i>
-				<div data-i18n="firmwares" class="content">
-				</div>
-			</h2>
-			<div class="ui list" id="firmware-summary">
+		</h2>
+		<div class="dimmable">
+			<div id="dimmer-volume-info" class="ui active inverted dimmer">
+				<div class="ui loader" data-i18n="loading"></div>
 			</div>
-			
-			<div class="dimmable">
-				<div id="dimmer-firmware-info" class="ui active inverted dimmer">
-					<div class="ui loader" data-i18n="loading"></div>
-				</div>
-				<div style="width: 100%" class="ui action input">
-					<input id="install-firmware-url-input" type="text" placeholder="http://.../RaspberryMatic.zip"/>
-					<button id="install-firmware-url-button" class="ui green right labeled icon button" onclick="install_firmware($('#install-firmware-url-input').val());">
-						<i class="sign in icon"></i>
-						install
-					</button>
-				</div>
-				<table id="firmware-info" class="ui celled stackable table">
-					<thead>
-						<tr>
-							<th data-i18n="version"></th>
-							<th class="center aligned" data-i18n="available"></th>
-							<th class="center aligned" data-i18n="supported"></th>
-							<th class="center aligned" data-i18n="downloaded"></th>
-							<th class="center aligned" data-i18n="action"></th>
-						</tr>
-					</thead>
-					<tbody>
-					</tbody>
-				</table>
-				<div class="ui checkbox">
-					<input id="dryrun" type="checkbox">
-					<label data-i18n="perform_trial_run"></label>
-				</div>
-				<br />
-				<div class="ui checkbox">
-					<input id="delete-download-after-install" type="checkbox" checked="checked">
-					<label data-i18n="delete_download_after_install"></label>
-				</div>
-				<br />
-				<div class="ui checkbox">
-					<input id="reboot-after-install" type="checkbox" checked="checked">
-					<label data-i18n="reboot_after_install"></label>
-				</div>
+			<table id="volume-info" class="ui celled stackable table">
+				<thead>
+				<tr>
+					<th data-i18n="device"></th>
+					<th data-i18n="partition_number"></th>
+					<th data-i18n="filesystem_type"></th>
+					<th data-i18n="filesystem_label"></th>
+					<th data-i18n="mountpoint"></th>
+					<th class="right aligned" data-i18n="size"></th>
+					<th class="right aligned" data-i18n="used"></th>
+					<th class="right aligned" data-i18n="free"></th>
+					<th class="center aligned" data-i18n="action"></th>
+				</tr>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
+		</div>
+
+		<h2 id="firmware_header" class="ui header">
+			<i class="settings icon"></i>
+			<div data-i18n="firmwares" class="content">
 			</div>
-			
-			<h2 class="ui header">
-				<i class="plug icon"></i>
-				<div data-i18n="addons" class="content">
-				</div>
-			</h2>
-			<div class="dimmable">
-				<div id="dimmer-addon-info" class="ui active inverted dimmer">
-					<div class="ui loader" data-i18n="loading"></div>
-				</div>
-				<table id="addon-info" class="ui celled stackable table">
-					<thead>
-						<tr>
-							<th data-i18n="addon_name"></th>
-							<th data-i18n="installed_version"></th>
-							<th data-i18n="available_version"></th>
-							<th class="center aligned" data-i18n="action"></th>
-						</tr>
-					</thead>
-					<tbody>
-					</tbody>
-				</table>
+		</h2>
+		<div id="firmware_summary" class="ui list" id="firmware-summary">
+		</div>
+
+		<div id="firmware_list" class="dimmable">
+			<div id="dimmer-firmware-info" class="ui active inverted dimmer">
+				<div class="ui loader" data-i18n="loading"></div>
 			</div>
-			
-			<h2 class="ui header">
-				<i class="cloud download icon"></i>
-				<div data-i18n="install_addon_from_url" class="content">
-				</div>
-			</h2>
 			<div style="width: 100%" class="ui action input">
-				<input id="install-addon-url-input" type="text" placeholder="http://.../addon.tar.gz"/>
-				<button id="install-addon-url-button" class="ui green right labeled icon button" onclick="install_addon(null, $('#install-addon-url-input').val());">
+				<input id="install-firmware-url-input" type="text" placeholder="http://.../RaspberryMatic.zip"/>
+				<button id="install-firmware-url-button" class="ui green right labeled icon button" onclick="install_firmware($('#install-firmware-url-input').val());">
 					<i class="sign in icon"></i>
 					install
 				</button>
 			</div>
-			
-			<h2 class="ui header">
-				<i class="upload icon"></i>
-				<div data-i18n="install_addon_from_file" class="content">
-				</div>
-			</h2>
-			<div style="width: 100%" class="ui action input">
-				<input class="inputfile" id="install-addon-file-input" type="file" onchange="install_addon(null, null, this);" style="display: none;"/>
-				<label id="install-addon-file-button" for="install-addon-file-input" class="ui green button">
-					<i class="ui file archive outline icon"></i>
-					choose_addon_file
-				</label>
+			<table id="firmware-info" class="ui celled stackable table">
+				<thead>
+				<tr>
+					<th data-i18n="version"></th>
+					<th class="center aligned" data-i18n="available"></th>
+					<th class="center aligned" data-i18n="supported"></th>
+					<th class="center aligned" data-i18n="downloaded"></th>
+					<th class="center aligned" data-i18n="action"></th>
+				</tr>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
+			<div class="ui checkbox">
+				<input id="dryrun" type="checkbox">
+				<label data-i18n="perform_trial_run"></label>
 			</div>
-			
-			<h2 class="ui header">
-				<i class="wifi icon"></i>
-				<div data-i18n="wlan" class="content">
-				</div>
-			</h2>
-			<div>
-				<div class="ui toggle checkbox">
-					<input type="checkbox" id="wlan-scan-checkbox" onclick="wlan_scan();">
-					<label data-i18n="wlan_scanning"></label>
-				</div>
-				<table id="wlan-list" class="ui celled stackable table">
-					<thead>
-						<tr>
-							<th data-i18n="wlan_ssid"></th>
-							<th data-i18n="wlan_connected"></th>
-							<th data-i18n="wlan_signal"></th>
-							<th class="center aligned" data-i18n="action"></th>
-						</tr>
-					</thead>
-					<tbody>
-					</tbody>
-				</table>
+			<br />
+			<div class="ui checkbox">
+				<input id="delete-download-after-install" type="checkbox" checked="checked">
+				<label data-i18n="delete_download_after_install"></label>
 			</div>
+			<br />
+			<div class="ui checkbox">
+				<input id="reboot-after-install" type="checkbox" checked="checked">
+				<label data-i18n="reboot_after_install"></label>
+			</div>
+		</div>
+
+		<h2 class="ui header">
+			<i class="plug icon"></i>
+			<div data-i18n="addons" class="content">
+			</div>
+		</h2>
+		<div class="dimmable">
+			<div id="dimmer-addon-info" class="ui active inverted dimmer">
+				<div class="ui loader" data-i18n="loading"></div>
+			</div>
+			<table id="addon-info" class="ui celled stackable table">
+				<thead>
+				<tr>
+					<th data-i18n="addon_name"></th>
+					<th data-i18n="installed_version"></th>
+					<th data-i18n="available_version"></th>
+					<th class="center aligned" data-i18n="action"></th>
+				</tr>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
+		</div>
+
+		<h2 class="ui header">
+			<i class="cloud download icon"></i>
+			<div data-i18n="install_addon_from_url" class="content">
+			</div>
+		</h2>
+		<div style="width: 100%" class="ui action input">
+			<input id="install-addon-url-input" type="text" placeholder="http://.../addon.tar.gz"/>
+			<button id="install-addon-url-button" class="ui green right labeled icon button" onclick="install_addon(null, $('#install-addon-url-input').val());">
+				<i class="sign in icon"></i>
+				install
+			</button>
+		</div>
+
+		<h2 class="ui header">
+			<i class="upload icon"></i>
+			<div data-i18n="install_addon_from_file" class="content">
+			</div>
+		</h2>
+		<div style="width: 100%" class="ui action input">
+			<input class="inputfile" id="install-addon-file-input" type="file" onchange="install_addon(null, null, this);" style="display: none;"/>
+			<label id="install-addon-file-button" for="install-addon-file-input" class="ui green button">
+				<i class="ui file archive outline icon"></i>
+				choose_addon_file
+			</label>
+		</div>
+
+		<h2 class="ui header">
+			<i class="wifi icon"></i>
+			<div data-i18n="wlan" class="content">
+			</div>
+		</h2>
+		<div>
+			<div class="ui toggle checkbox">
+				<input type="checkbox" id="wlan-scan-checkbox" onclick="wlan_scan();">
+				<label data-i18n="wlan_scanning"></label>
+			</div>
+			<table id="wlan-list" class="ui celled stackable table">
+				<thead>
+				<tr>
+					<th data-i18n="wlan_ssid"></th>
+					<th data-i18n="wlan_connected"></th>
+					<th data-i18n="wlan_signal"></th>
+					<th class="center aligned" data-i18n="action"></th>
+				</tr>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
 		</div>
 	</div>
-	
-	<div style="height:60vh;" id="modal-log" class="ui modal">
-		<i class="close icon"></i>
-		<div class="header" data-i18n="installation_log">
-		</div>
-		<div class="ui bottom attached progress" data-value="0" data-total="25" id="install-progress">
-			<div class="bar"></div>
-		</div>
-		<div class="content">
+</div>
+
+<div style="height:60vh;" id="modal-log" class="ui modal">
+	<i class="close icon"></i>
+	<div class="header" data-i18n="installation_log">
+	</div>
+	<div class="ui bottom attached progress" data-value="0" data-total="25" id="install-progress">
+		<div class="bar"></div>
+	</div>
+	<div class="content">
 			<pre style="height:40vh; overflow-x:hidden; overflow-y:auto; white-space: pre-wrap;" id="log-content">
 			</pre>
+	</div>
+</div>
+
+<div id="modal-uninstall-addon" class="ui small basic modal transition scrolling">
+	<div data-i18n="uninstall_addon" class="header"></div>
+	<div class="content">
+		<p data-i18n="sure_to_uninstall_addon"></p>
+	</div>
+	<div class="actions">
+		<div data-i18n="cancel" class="ui gray basic cancel inverted button">
+		</div>
+		<div data-i18n="uninstall" class="ui red approve inverted button">
 		</div>
 	</div>
-	
-	<div id="modal-uninstall-addon" class="ui small basic modal transition scrolling">
-		<div data-i18n="uninstall_addon" class="header"></div>
-		<div class="content">
-			<p data-i18n="sure_to_uninstall_addon"></p>
+</div>
+
+<div id="modal-reboot" class="ui small basic modal transition scrolling">
+	<div data-i18n="reboot_system" class="header"></div>
+	<div class="content">
+		<p data-i18n="sure_to_reboot_system"></p>
+	</div>
+	<div class="actions">
+		<div data-i18n="cancel" class="ui gray basic cancel inverted button">
 		</div>
-		<div class="actions">
-			<div data-i18n="cancel" class="ui gray basic cancel inverted button">
-			</div>
-			<div data-i18n="uninstall" class="ui red approve inverted button">
-			</div>
+		<div data-i18n="reboot" class="ui red approve inverted button">
 		</div>
 	</div>
-	
-	<div id="modal-reboot" class="ui small basic modal transition scrolling">
-		<div data-i18n="reboot_system" class="header"></div>
-		<div class="content">
-			<p data-i18n="sure_to_reboot_system"></p>
+</div>
+
+<div id="modal-shutdown" class="ui small basic modal transition scrolling">
+	<div data-i18n="shutdown_system" class="header"></div>
+	<div class="content">
+		<p data-i18n="sure_to_shutdown_system"></p>
+	</div>
+	<div class="actions">
+		<div data-i18n="cancel" class="ui gray basic cancel inverted button">
 		</div>
-		<div class="actions">
-			<div data-i18n="cancel" class="ui gray basic cancel inverted button">
-			</div>
-			<div data-i18n="reboot" class="ui red approve inverted button">
-			</div>
+		<div data-i18n="shutdown" class="ui red approve inverted button">
 		</div>
 	</div>
-	
-	<div id="modal-shutdown" class="ui small basic modal transition scrolling">
-		<div data-i18n="shutdown_system" class="header"></div>
-		<div class="content">
-			<p data-i18n="sure_to_shutdown_system"></p>
+</div>
+
+<div id="modal-move-userfs" class="ui small basic modal transition scrolling">
+	<div data-i18n="move_userfs" class="header"></div>
+	<div class="content">
+		<p data-i18n="sure_to_move_userfs"></p>
+	</div>
+	<div class="actions">
+		<div data-i18n="cancel" class="ui gray basic cancel inverted button">
 		</div>
-		<div class="actions">
-			<div data-i18n="cancel" class="ui gray basic cancel inverted button">
-			</div>
-			<div data-i18n="shutdown" class="ui red approve inverted button">
-			</div>
+		<div data-i18n="move" class="ui red approve inverted button">
 		</div>
 	</div>
-	
-	<div id="modal-move-userfs" class="ui small basic modal transition scrolling">
-		<div data-i18n="move_userfs" class="header"></div>
-		<div class="content">
-			<p data-i18n="sure_to_move_userfs"></p>
+</div>
+
+<div id="modal-delete-partition-table" class="ui small basic modal transition scrolling">
+	<div data-i18n="delete_partition_table" class="header"></div>
+	<div class="content">
+		<p data-i18n="sure_to_delete_partition_table"></p>
+	</div>
+	<div class="actions">
+		<div data-i18n="cancel" class="ui gray basic cancel inverted button">
 		</div>
-		<div class="actions">
-			<div data-i18n="cancel" class="ui gray basic cancel inverted button">
-			</div>
-			<div data-i18n="move" class="ui red approve inverted button">
-			</div>
+		<div data-i18n="delete" class="ui red approve inverted button">
 		</div>
 	</div>
-	
-	<div id="modal-delete-partition-table" class="ui small basic modal transition scrolling">
-		<div data-i18n="delete_partition_table" class="header"></div>
-		<div class="content">
-			<p data-i18n="sure_to_delete_partition_table"></p>
-		</div>
-		<div class="actions">
-			<div data-i18n="cancel" class="ui gray basic cancel inverted button">
+</div>
+
+<div id="modal-connect-wlan" class="ui modal">
+	<i class="close icon"></i>
+	<div class="header" data-i18n="connect_to_wlan">
+	</div>
+	<div class="content">
+		<form id="form-connect-wlan" class="ui form">
+			<div class="field">
+				<label data-i18n="password"></label>
+				<input type="password" name="password">
 			</div>
-			<div data-i18n="delete" class="ui red approve inverted button">
+			<div class="ui error message"></div>
+			<div class="ui button" onclick="$('#modal-connect-wlan').modal('hide');" data-i18n="cancel"></div>
+			<div id="submit-connect-wlan" class="ui primary submit button" data-i18n="connect"></div>
+		</form>
+	</div>
+</div>
+
+<div id="modal-login" class="ui modal">
+	<i class="close icon"></i>
+	<div class="header" data-i18n="login">
+	</div>
+	<div class="content">
+		<form id="form-login" class="ui form">
+			<div class="field">
+				<label data-i18n="username"></label>
+				<input type="text" name="username" value="Admin">
 			</div>
-		</div>
+			<div class="field">
+				<label data-i18n="password"></label>
+				<input type="password" name="password">
+			</div>
+			<div class="ui error message"></div>
+			<!--
+            <div class="ui button" onclick="$('#modal-login').modal('hide');" data-i18n="cancel"></div>
+            -->
+			<div id="submit-login" class="ui primary submit button" data-i18n="login"></div>
+		</form>
 	</div>
-	
-	<div id="modal-connect-wlan" class="ui modal">
-		<i class="close icon"></i>
-		<div class="header" data-i18n="connect_to_wlan">
-		</div>
-		<div class="content">
-			<form id="form-connect-wlan" class="ui form">
-				<div class="field">
-					<label data-i18n="password"></label>
-					<input type="password" name="password">
-				</div>
-				<div class="ui error message"></div>
-				<div class="ui button" onclick="$('#modal-connect-wlan').modal('hide');" data-i18n="cancel"></div>
-				<div id="submit-connect-wlan" class="ui primary submit button" data-i18n="connect"></div>
-			</form>
-		</div>
-	</div>
-	
-	<div id="modal-login" class="ui modal">
-		<i class="close icon"></i>
-		<div class="header" data-i18n="login">
-		</div>
-		<div class="content">
-			<form id="form-login" class="ui form">
-				<div class="field">
-					<label data-i18n="username"></label>
-					<input type="text" name="username" value="Admin">
-				</div>
-				<div class="field">
-					<label data-i18n="password"></label>
-					<input type="password" name="password">
-				</div>
-				<div class="ui error message"></div>
-				<!--
-				<div class="ui button" onclick="$('#modal-login').modal('hide');" data-i18n="cancel"></div>
-				-->
-				<div id="submit-login" class="ui primary submit button" data-i18n="login"></div>
-			</form>
-		</div>
-	</div>
-	
+</div>
+
 </body>
 </html>
