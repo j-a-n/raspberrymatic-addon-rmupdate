@@ -285,9 +285,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						current_firmware = fw.version;
 						if (current_firmware.length <= 8) {
 							//ccu3 and not raspberrymatic because of short version string
-							$('#firmware_header').hide();
-							$('#firmware_summary').hide();
-							$('#firmware_list').hide();
+							$('#firmware-header').hide();
+							$('#firmware-summary').hide();
+							$('#firmware-list').hide();
 						}
 					}
 					var color = 'yellow';
@@ -1027,15 +1027,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				</table>
 			</div>
 			
-			<h2 id="firmware_header" class="ui header">
+			<h2 id="firmware-header" class="ui header">
 				<i class="settings icon"></i>
 				<div data-i18n="firmwares" class="content">
 				</div>
 			</h2>
-			<div id="firmware_summary" class="ui list" id="firmware-summary">
+			<div id="firmware-summary" class="ui list" id="firmware-summary">
 			</div>
 			
-			<div id="firmware_list" class="dimmable">
+			<div id="firmware-list" class="dimmable">
 				<div id="dimmer-firmware-info" class="ui active inverted dimmer">
 					<div class="ui loader" data-i18n="loading"></div>
 				</div>
