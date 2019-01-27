@@ -1368,6 +1368,13 @@ proc ::rmupdate::install_firmware {{download_url ""} {version ""} {lang ""} {reb
 				exec /bin/mount -o remount,ro "/boot"
 			}
 			
+			set ptuuid ""
+			catch { set ptuuid [exec blkid -s PTUUID -o value $sys_dev] }
+			if { $ptuuid != "deedbeef" } {
+				write_log 3 "Update mbr signature"
+				catch { exec /bin/echo -en "\\xef\\xbe\\xed\\xde" | /bin/dd of=$sys_dev conv=notrunc seek=440 bs=1 }
+			}
+			
 			#exec /bin/mount -o remount,rw "/boot"
 			#set fd [open "/boot/recoveryfs-sshpwd" "w"]
 			#puts -nonewline $fd "rmupdate"
