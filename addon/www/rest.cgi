@@ -2,7 +2,7 @@
 
 #  RaspMatic update addon
 #
-#  Copyright (C) 2018  Jan Schneider <oss@janschneider.net>
+#  Copyright (C) 2019  Jan Schneider <oss@janschneider.net>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -48,7 +48,12 @@ proc check_session {sid} {
 	if {[get_session $sid] != ""} {
 		# renew session
 		set url "http://127.0.0.1/pages/index.htm?sid=$sid"
-		::http::cleanup [::http::geturl $url]
+		set request [::http::geturl $url]
+		set code [::http::code $request]
+		::http::cleanup $request
+		if {[lindex $code 1] == 200} {
+			return 1
+		}
 		return 1
 	}
 	return 0
