@@ -234,7 +234,7 @@ variable content_type "application/json"
 
 if [catch {process} result] {
 	set status 500
-	if { $errorCode != "NONE" } {
+	if { [regexp {^\d+$} $errorCode ] } {
 		set status $errorCode
 	}
 	puts "Content-Type: ${content_type}"
