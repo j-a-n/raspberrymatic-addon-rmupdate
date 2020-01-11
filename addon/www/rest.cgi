@@ -240,7 +240,7 @@ if [catch {process} result] {
 	puts "Content-Type: ${content_type}"
 	puts "Status: $status";
 	puts ""
-	set result [json_string $result]
+	set result [json_string "${result} - ${::errorCode} - ${::errorInfo}"]
 	puts -nonewline "\{\"error\":\"${result}\"\}"
 } else {
 	puts "Content-Type: ${content_type}"

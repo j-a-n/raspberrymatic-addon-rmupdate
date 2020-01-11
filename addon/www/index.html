@@ -59,7 +59,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		
 		function display_message(type, text, millis) {
 			clear_message();
-			$('#message').contents().last()[0].textContent = text;
+			$('#message-text').html(text);
 			$('#message').attr('class', 'ui ' + type + ' message visible');
 			message_timer_id = setTimeout(clear_message, millis);
 		}
@@ -69,7 +69,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				clearTimeout(message_timer_id);
 			}
 			message_timer_id = null;
-			$('#message').contents().last()[0].textContent = '';
+			$('#message-text').html('');
 			$('#message').attr('class', 'ui message hidden');
 		}
 		
@@ -256,9 +256,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						// We are not expecting a response
 					},
 					function(xhr, ajaxOptions, thrownError) {
+						err = thrownError;
+						try {
+							obj = JSON.parse(xhr.responseText);
+							if (obj.error != null) {
+								err = obj.error;
+							}
+						}
+						catch(e) {
+						}
 						console.error("Firmware installation error: " + thrownError + ": " + xhr.responseText);
 						//$('#modal-log').modal('hide');
-						set_running_installation("", thrownError + ": " + xhr.responseText);
+						set_running_installation("", err);
 					}
 				);
 			}
@@ -980,6 +989,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			<div class="ui container">
 				<div id="message" class="ui message hidden" style="margin-left: 100px; margin-right: 100px; min-height: 50px; min-width: 340px">
 					<i class="close icon" onclick="clear_message();"></i>
+					<pre id="message-text" style='font-family: Lato,"Helvetica Neue",Arial,Helvetica,sans-serif; white-space: pre-wrap;' />
 				</div>
 			</div>
 		</div>
