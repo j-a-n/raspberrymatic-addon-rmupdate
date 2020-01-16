@@ -319,8 +319,13 @@ proc ::rmupdate::get_partitions {{device ""}} {
 							}
 						}
 					}
-
-					set data3 [exec /sbin/blkid $part_dev]
+					
+					set data3 ""
+					if [catch {
+						set data3 [exec /sbin/blkid $part_dev]
+					} err] {
+						error "Command blkid failed for device ${part_dev}: ${err}"
+					}
 					foreach d3 [split $data3 "\n"] {
 						if {[regexp {LABEL="([^"]+)"} $d3 match lab]} {
 							set partitions(${dev}::${num}::filesystem_label) $lab
