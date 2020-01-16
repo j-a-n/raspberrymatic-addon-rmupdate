@@ -1057,10 +1057,13 @@ proc ::rmupdate::get_available_firmware_downloads {} {
 	return $download_urls
 }
 
-proc ::rmupdate::get_latest_firmware_version {} {
+proc ::rmupdate::get_latest_firmware_version {{experimental 0}} {
 	set versions [list]
 	foreach e [get_available_firmware_downloads] {
-		lappend versions [get_version_from_filename $e]
+		set version [get_version_from_filename $e]
+		if {[regexp {\.} $version match] || $experimental == 1} {
+			lappend versions $version
+		}
 	}
 	set versions [lsort -decreasing -command compare_versions $versions]
 	return [lindex $versions 0]
@@ -1184,8 +1187,18 @@ proc ::rmupdate::get_firmware_info {} {
 	set versions [lsort -decreasing -command compare_versions $versions]
 	
 	set json "\["
-	set latest "true"
+	set latest_version ""
 	foreach v $versions {
+		set experimental "false"
+		set latest "false"
+		if {![regexp {\.} $v match]} {
+			set experimental "true"
+		} else {
+			if {$latest_version == ""} {
+				set latest_version $v
+				set latest "true"
+			}
+		}
 		set installed "false"
 		if {$v == $current} {
 			set installed "true"
@@ -1201,7 +1214,7 @@ proc ::rmupdate::get_firmware_info {} {
 		set url ""
 		catch { set url $downloads($v) }
 		set info_url "${release_url}/tag/${v}"
-		append json "\{\"version\":\"${v}\",\"installed\":${installed},\"latest\":${latest},\"supported\":${supported},\"url\":\"${url}\",\"info_url\":\"${info_url}\",\"image\":\"${image}\"\},"
+		append json "\{\"version\":\"${v}\",\"installed\":${installed},\"latest\":${latest},\"experimental\":${experimental},\"supported\":${supported},\"url\":\"${url}\",\"info_url\":\"${info_url}\",\"image\":\"${image}\"\},"
 		set latest "false"
 	}
 	if {[llength versions] > 0} {
