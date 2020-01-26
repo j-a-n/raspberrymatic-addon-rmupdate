@@ -316,15 +316,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					});
 					
 					var available = (fw.url ? 'checked=""' : '')
-					var supported = (fw.supported ? 'checked=""' : '')
+					var experimental = (fw.experimental ? 'checked=""' : '')
 					var downloaded = (fw.image ? 'checked=""' : '')
 					var cls = '';
 					if (fw.installed) cls = ' class="warning"';
+					if (fw.experimental) cls = ' class="error"';
 					if (fw.latest) cls = ' class="positive"';
 					$("#firmware-info tbody").append($('<tr' + cls + '>').append(
 						$('<td>').append($('<a>', {text: fw.version, title: i18next.t('open_release_info'), href: fw.info_url, target: "_blank"})),
 						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+available+'>'),$('<label></label>'))),
-						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+supported+'>'),$('<label></label>'))),
+						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+experimental+'>'),$('<label></label>'))),
 						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+downloaded+'>'),$('<label></label>'))),
 						$('<td class="center aligned">').append(bdelete, binstall)
 					));
@@ -794,6 +795,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							version: 'Version',
 							available: 'Available',
 							supported: 'Supported',
+							experimental: 'Experimental',
 							downloaded: 'Downloaded',
 							action: 'Action',
 							delete_download: 'Delete download',
@@ -880,6 +882,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							version: 'Version',
 							available: 'Verfügbar',
 							supported: 'Unterstützt',
+							experimental: 'Experimentell',
 							downloaded: 'Heruntergeladen',
 							action: 'Aktion',
 							delete_download: 'Download löschen',
@@ -1061,7 +1064,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						<tr>
 							<th data-i18n="version"></th>
 							<th class="center aligned" data-i18n="available"></th>
-							<th class="center aligned" data-i18n="supported"></th>
+							<th class="center aligned" data-i18n="experimental"></th>
 							<th class="center aligned" data-i18n="downloaded"></th>
 							<th class="center aligned" data-i18n="action"></th>
 						</tr>
