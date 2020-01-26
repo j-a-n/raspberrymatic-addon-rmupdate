@@ -139,7 +139,12 @@ proc ::rmupdate::get_rpi_version {} {
 	set revision_map(a32082)  "rpi3"
 	set revision_map(1a01041) "rpi3"
 	set revision_map(a020d3)  "rpi3"
-
+	set revision_map(9020e0)  "rpi3"
+	set revision_map(a02100)  "rpi3"
+	set revision_map(a03111)  "rpi4"
+	set revision_map(b03111)  "rpi4"
+	set revision_map(c03111)  "rpi4"
+	
 	set fd [open /proc/cpuinfo r]
 	set data [read $fd]
 	close $fd
@@ -156,7 +161,7 @@ proc ::rmupdate::get_rpi_version {} {
 	return ""
 }
 
-# return 1 if a>b,  0 if a=b,  -1 if a<b  
+# return 1 if a>b,  0 if a=b,  -1 if a<b
 proc ::rmupdate::compare_versions {a b} {
 	return [package vcompare $a $b]
 }
