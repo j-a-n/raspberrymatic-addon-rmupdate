@@ -57,8 +57,13 @@ fi
 
 echo "add menu entry" >>$LOG_FILE
 touch "${CONFIG_DIR}/hm_addons.cfg"
-chmod 755 ${ADDON_DIR}/update_addon
-${ADDON_DIR}/update_addon ${ADDON_NAME} "${ADDON_DIR}/etc/${ADDON_NAME}-addon.cfg"
+
+if [ -x /bin/updateAddonConfig.tcl ]; then
+	/bin/updateAddonConfig.tcl -a rmupdate -url /addons/rmupdate/index.html -name "System-Update" -de "System-Update" -en "System-update"
+else
+	chmod 755 ${ADDON_DIR}/update_addon
+	${ADDON_DIR}/update_addon ${ADDON_NAME} "${ADDON_DIR}/etc/${ADDON_NAME}-addon.cfg"
+fi
 
 echo "cleanup" >>$LOG_FILE
 [ -e "${ADDON_DIR}/var/img/RaspberryMatic-unknown.img" ] && rm "${ADDON_DIR}/var/img/RaspberryMatic-unknown.img"
