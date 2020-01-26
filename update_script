@@ -57,7 +57,6 @@ fi
 
 echo "add menu entry" >>$LOG_FILE
 touch "${CONFIG_DIR}/hm_addons.cfg"
-
 if [ -x /bin/updateAddonConfig.tcl ]; then
 	/bin/updateAddonConfig.tcl -a rmupdate -url /addons/rmupdate/index.html -name "System-Update" -de "System-Update" -en "System-update"
 else
