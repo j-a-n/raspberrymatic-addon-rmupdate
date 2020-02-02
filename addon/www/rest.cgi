@@ -151,7 +151,7 @@ proc process {} {
 			return [rmupdate::get_addon_info 1 1 1]
 		} elseif {[lindex $path 1] == "start_install_firmware"} {
 			regexp {\"download_url\"\s*:\s*\"([^\"]*)\"} $data match download_url
-			regexp {\"version\"\s*:\s*\"([\d\.]*)\"} $data match version
+			regexp {\"version\"\s*:\s*\"([\d\.\-]*)\"} $data match version
 			regexp {\"language\"\s*:\s*\"([^\"]+)\"} $data match lang
 			regexp {\"reboot\"\s*:\s*(true|false)} $data match reboot
 			regexp {\"dryrun\"\s*:\s*(true|false)} $data match dryrun
@@ -232,7 +232,7 @@ proc process {} {
 
 variable content_type "application/json"
 
-if [catch {process} result] {
+if {[catch {process} result]} {
 	set status 500
 	if { [regexp {^\d+$} $errorCode ] } {
 		set status $errorCode

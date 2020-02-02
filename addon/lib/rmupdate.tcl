@@ -105,6 +105,17 @@ proc ::rmupdate::i18n {str} {
 }
 
 proc ::rmupdate::get_rpi_version {} {
+	if {[file exists /var/hm_mode]} {
+		set fd [open /var/hm_mode r]
+		set data [read $fd]
+		close $fd
+		foreach d [split $data "\n"] {
+			if {[regexp {^HM_HOST='([^']+)'} $d match host]} {
+				return $host
+			}
+		}
+	}
+	
 	# Revison list from http://elinux.org/RPi_HardwareHistory
 	set revision_map(0002)    "rpi0"
 	set revision_map(0003)    "rpi0"
@@ -163,7 +174,7 @@ proc ::rmupdate::get_rpi_version {} {
 
 # return 1 if a>b,  0 if a=b,  -1 if a<b
 proc ::rmupdate::compare_versions {a b} {
-	return [package vcompare $a $b]
+	return [package vcompare [lindex [split $a "-"] 0] [lindex [split $b "-"] 0]]
 }
 
 # error=1, warning=2, info=3, debug=4
@@ -202,7 +213,7 @@ proc ::rmupdate::read_log {} {
 proc ::rmupdate::write_install_log {str args} {
 	variable install_log
 	write_log 4 [format $str $args]
-	puts stderr $str
+	puts stderr [format [i18n $str] $args]
 	set fd [open $install_log "a"]
 	puts $fd [format [i18n $str] $args]
 	close $fd
@@ -1038,6 +1049,9 @@ proc ::rmupdate::get_available_firmware_downloads {} {
 	variable release_url
 	set download_urls [list]
 	set rpi_version [get_rpi_version]
+	if {$rpi_version == ""} {
+		return $download_urls
+	}
 	set data [exec /usr/bin/wget "${release_url}" --no-check-certificate -q -O-]
 	foreach d [split $data ">"] {
 		set href ""
@@ -1045,10 +1059,9 @@ proc ::rmupdate::get_available_firmware_downloads {} {
 		if { [info exists href] && $href != ""} {
 			set fn [lindex [split $href "/"] end]
 			set tmp [split $fn "-"]
-			if { [llength $tmp] == 3 } {
-				if { $rpi_version != [lindex $tmp 2] } {
-					continue
-				}
+			set v [lindex $tmp [expr {[llength $tmp] - 1}]]
+			if { $rpi_version != $v } {
+				continue
 			}
 			#write_log 4 $href
 			if {[string first "https://" $href] == -1} {
@@ -1066,7 +1079,7 @@ proc ::rmupdate::get_latest_firmware_version {{experimental 0}} {
 	set versions [list]
 	foreach e [get_available_firmware_downloads] {
 		set version [get_version_from_filename $e]
-		if {[regexp {\.} $version match] || $experimental == 1} {
+		if {[string first "-" $version] == -1 || $experimental == 1} {
 			lappend versions $version
 		}
 	}
@@ -1154,9 +1167,12 @@ proc ::rmupdate::get_available_firmware_images {} {
 proc ::rmupdate::get_version_from_filename {filename} {
 	set fn [file rootname [file tail $filename]]
 	set tmp [split $fn "-"]
-	return [lindex $tmp 1]
+	set version [lindex $tmp 1]
+	if {[llength $tmp] == 4} {
+		append version "-" [lindex $tmp 2]
+	}
 	#regexp {\-([\d\.]+)\.[^\.]+-*.*$} $filename match version
-	#return $version
+	return $version
 }
 
 proc ::rmupdate::get_firmware_info {} {
@@ -1196,7 +1212,7 @@ proc ::rmupdate::get_firmware_info {} {
 	foreach v $versions {
 		set experimental "false"
 		set latest "false"
-		if {![regexp {\.} $v match]} {
+		if {[string first "-" $v] != -1} {
 			set experimental "true"
 		} else {
 			if {$latest_version == ""} {
@@ -1890,6 +1906,7 @@ proc ::rmupdate::set_camera_active {active} {
 	catch { exec /bin/mount -o remount,ro "/boot" }
 }
 
+#rmupdate::install_firmware "" "3.49.17.20200131-6867276"
 #puts [rmupdate::get_latest_firmware_version]
 #puts [rmupdate::get_firmware_info]
 #puts [rmupdate::get_available_firmware_images]
