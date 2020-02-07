@@ -111,6 +111,9 @@ proc ::rmupdate::get_rpi_version {} {
 		close $fd
 		foreach d [split $data "\n"] {
 			if {[regexp {^HM_HOST='([^']+)'} $d match host]} {
+				if {[regexp {^(rpi\d)} $host match rpi_host]} {
+					return $rpi_host
+				}
 				return $host
 			}
 		}
