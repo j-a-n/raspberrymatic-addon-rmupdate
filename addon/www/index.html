@@ -319,10 +319,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					var experimental = (fw.experimental ? 'checked=""' : '')
 					var downloaded = (fw.image ? 'checked=""' : '')
 					var cls = '';
+					var style = '';
 					if (fw.installed) cls = ' class="warning"';
-					if (fw.experimental) cls = ' class="error"';
+					if (fw.experimental) { cls = ' class="error"'; style = 'visibility: collapse;' }
 					if (fw.latest) cls = ' class="positive"';
-					$("#firmware-info tbody").append($('<tr' + cls + '>').append(
+					$("#firmware-info tbody").append($('<tr' + cls + ' style="' + style + '">').attr('data-experimental', fw.experimental).append(
 						$('<td>').append($('<a>', {text: fw.version, title: i18next.t('open_release_info'), href: fw.info_url, target: "_blank"})),
 						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+available+'>'),$('<label></label>'))),
 						$('<td class="center aligned">').append($('<div class="ui disabled checkbox">').append($('<input type="checkbox" disabled="disabled" '+experimental+'>'),$('<label></label>'))),
@@ -350,6 +351,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				});
 				$('#dimmer-firmware-info').removeClass('active');
 			});
+		}
+		
+		function show_experimental_firmware(show) {
+			$('tr[data-experimental="true"]').css('visibility', show ? '' : 'collapse');
 		}
 		
 		function get_system_info() {
@@ -789,6 +794,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							delete: 'Delete',
 							partiton_table_deleted: 'Partiton table deleted.',
 							firmwares: 'Firmwares',
+							show_experimental_fw: 'Show experimental versions',
 							current_installed_version: 'Current installed version',
 							latest_available_version: 'Latest available version',
 							loading: 'Loading',
@@ -876,6 +882,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							delete: 'Löschen',
 							partiton_table_deleted: 'Partitionstabelle gelöscht.',
 							firmwares: 'Firmwares',
+							show_experimental_fw: 'Experimentelle Versionen anzeigen',
 							current_installed_version: 'Momentan installierte Version',
 							latest_available_version: 'Aktuellste verfügbare Version',
 							loading: 'Lade',
@@ -1058,6 +1065,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						<i class="sign in icon"></i>
 						install
 					</button>
+				</div>
+				<div class="ui checkbox" style="margin-top: 20px;">
+					<input id="show-experimental-fw" type="checkbox" onchange="show_experimental_firmware(this.checked);">
+					<label data-i18n="show_experimental_fw"></label>
 				</div>
 				<table id="firmware-info" class="ui celled stackable table">
 					<thead>
