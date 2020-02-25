@@ -321,7 +321,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					var cls = '';
 					var style = '';
 					if (fw.installed) cls = ' class="warning"';
-					if (fw.experimental) { cls = ' class="error"'; style = 'visibility: collapse;' }
+					if (fw.experimental) { cls = ' class="error"'; style = 'display: none!important;' }
 					if (fw.latest) cls = ' class="positive"';
 					$("#firmware-info tbody").append($('<tr' + cls + ' style="' + style + '">').attr('data-experimental', fw.experimental).append(
 						$('<td>').append($('<a>', {text: fw.version, title: i18next.t('open_release_info'), href: fw.info_url, target: "_blank"})),
@@ -354,7 +354,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		function show_experimental_firmware(show) {
-			$('tr[data-experimental="true"]').css('visibility', show ? '' : 'collapse');
+			$('tr[data-experimental="true"]').css('cssText', show ? '' : 'display:none !important');
 		}
 		
 		function get_system_info() {
