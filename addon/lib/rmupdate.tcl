@@ -343,7 +343,8 @@ proc ::rmupdate::get_partitions {{device ""}} {
 					if [catch {
 						set data3 [exec /sbin/blkid $part_dev]
 					} err] {
-						error "Command blkid failed for device ${part_dev}: ${err}"
+						write_log 1 "Command blkid failed for device ${part_dev}: ${err}"
+						#error "Command blkid failed for device ${part_dev}: ${err}"
 					}
 					foreach d3 [split $data3 "\n"] {
 						if {[regexp {LABEL="([^"]+)"} $d3 match lab]} {
