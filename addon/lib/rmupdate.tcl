@@ -1064,7 +1064,11 @@ proc ::rmupdate::get_available_firmware_downloads {} {
 			set fn [lindex [split $href "/"] end]
 			set tmp [split $fn "-"]
 			set v [lindex $tmp [expr {[llength $tmp] - 1}]]
-			if { $rpi_version != $v } {
+			if { $v == "rpi3" && $rpi_version == "rpi2" } {
+				write_log 4 "Using rpi3 package for rpi2: ${href}"
+			} elsif { $v == "ova" && $rpi_version == "ova-KVM" } {
+				write_log 4 "Using ova package for ova-KVM: ${href}"
+			} elsif { $rpi_version != $v } {
 				continue
 			}
 			#write_log 4 $href
