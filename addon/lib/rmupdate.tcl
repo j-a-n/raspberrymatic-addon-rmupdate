@@ -1243,6 +1243,9 @@ proc ::rmupdate::get_firmware_info {} {
 		set url ""
 		catch { set url $downloads($v) }
 		set info_url "${release_url}/tag/${v}"
+		if {$experimental == "true"} {
+			set info_url "${release_url}/tag/snapshots"
+		}
 		append json "\{\"version\":\"${v}\",\"installed\":${installed},\"latest\":${latest},\"experimental\":${experimental},\"supported\":${supported},\"url\":\"${url}\",\"info_url\":\"${info_url}\",\"image\":\"${image}\"\},"
 		set latest "false"
 	}
