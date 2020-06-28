@@ -1192,15 +1192,29 @@ proc ::rmupdate::get_firmware_info {} {
 		write_log 1 "Failed to get latest supported version from ${support_file_url}"
 		return "\[\]"
 	}
-
+	
+	set versions [list]
 	set current [get_current_firmware_version]
-	set versions [list $current]
+	set experimental_version ""
 	foreach e [get_available_firmware_downloads] {
 		set version [get_version_from_filename $e]
-		set downloads($version) $e
-		if {[lsearch $versions $version] == -1} {
-			if {$version != "unknown"} {
+		if {$version != "unknown"} {
+			set downloads($version) $e
+			if {[string first "-" $version] != -1} {
+				set experimental_version $version
+			} elseif {[lsearch $versions $version] == -1} {
 				lappend versions $version
+			}
+		}
+	}
+	if {$experimental_version != ""} {
+		if {[lsearch $versions $experimental_version] == -1} {
+			set tmp [split $experimental_version "-"]
+			# experimental version != latest version
+			lappend versions $experimental_version
+			if {[lindex $tmp 0] == $current} {
+				# assuming that experimental version is installed
+				set current $experimental_version
 			}
 		}
 	}
@@ -1212,6 +1226,9 @@ proc ::rmupdate::get_firmware_info {} {
 				lappend versions $version
 			}
 		}
+	}
+	if {[lsearch $versions $current] == -1} {
+		lappend versions $current
 	}
 	set versions [lsort -decreasing -command compare_versions $versions]
 	
