@@ -1207,12 +1207,15 @@ proc ::rmupdate::get_firmware_info {} {
 			}
 		}
 	}
+	set versions [lsort -decreasing -command compare_versions $versions]
+	set latest [lindex $versions 0]
+	
 	if {$experimental_version != ""} {
 		if {[lsearch $versions $experimental_version] == -1} {
 			set tmp [split $experimental_version "-"]
 			# experimental version != latest version
 			lappend versions $experimental_version
-			if {[lindex $tmp 0] == $current} {
+			if {[lindex $tmp 0] == $current && $current != $latest} {
 				# assuming that experimental version is installed
 				set current $experimental_version
 			}
