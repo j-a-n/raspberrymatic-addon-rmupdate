@@ -118,7 +118,7 @@ proc ::rmupdate::get_rpi_version {} {
 			}
 		}
 	}
-	
+
 	# Revison list from http://elinux.org/RPi_HardwareHistory
 	set revision_map(0002)    "rpi0"
 	set revision_map(0003)    "rpi0"
@@ -143,10 +143,10 @@ proc ::rmupdate::get_rpi_version {} {
 	set revision_map(900093)  "rpi0"
 	set revision_map(920093)  "rpi0"
 	set revision_map(9000c1)  "rpi0"
-	set revision_map(a01040)  "rpi3"
-	set revision_map(a01041)  "rpi3"
-	set revision_map(a21041)  "rpi3"
-	set revision_map(a22042)  "rpi3"
+	set revision_map(a01040)  "rpi2"
+	set revision_map(a01041)  "rpi2"
+	set revision_map(a21041)  "rpi2"
+	set revision_map(a22042)  "rpi2"
 	set revision_map(a02082)  "rpi3"
 	set revision_map(a020a0)  "rpi3"
 	set revision_map(a22082)  "rpi3"
