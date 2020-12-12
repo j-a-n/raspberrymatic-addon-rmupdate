@@ -1818,44 +1818,48 @@ proc ::rmupdate::wlan_set_blocked {block {device "wlan0"}} {
 
 proc ::rmupdate::wlan_scan {{as_json 0} {device "wlan0"}} {
 	array set ssids {}
-	set blocked [wlan_get_blocked $device]
-	if {$blocked == 1} {
-		wlan_set_blocked 0 $device
-	}
-	catch { exec /sbin/ip link set $device up }
-	set data [exec /usr/sbin/iw $device scan]
-	if {$blocked == 1} {
-		wlan_set_blocked 1 $device
-	}
-	set cur_ssid ""
-	set cur_signal ""
-	set cur_connected 0
-	foreach d [split $data "\n"] {
-		if { [regexp {^\s*SSID:\s*(\S.*)\s*$} $d match ssid] } {
-			set cur_ssid $ssid
+	if [catch {
+		set blocked [wlan_get_blocked $device]
+		if {$blocked == 1} {
+			wlan_set_blocked 0 $device
 		}
-		if { [regexp {^\s*signal:\s*(\S.*)\s*$} $d match signal] } {
-			set cur_signal $signal
+		catch { exec /sbin/ip link set $device up }
+		set data [exec /usr/sbin/iw $device scan]
+		if {$blocked == 1} {
+			wlan_set_blocked 1 $device
 		}
-		if { [regexp {^BSS\s([a-fA-F0-9\:]+)} $d match bss] } {
-			if {$cur_ssid != "" && $cur_signal != ""} {
-				set ssids(${cur_ssid}::ssid) $cur_ssid
-				set ssids(${cur_ssid}::signal) $cur_signal
-				set ssids(${cur_ssid}::connected) $cur_connected
-				set cur_ssid ""
-				set cur_signal ""
-				set cur_connected 0
+		set cur_ssid ""
+		set cur_signal ""
+		set cur_connected 0
+		foreach d [split $data "\n"] {
+			if { [regexp {^\s*SSID:\s*(\S.*)\s*$} $d match ssid] } {
+				set cur_ssid $ssid
 			}
-			if { [regexp {associated} $d match] } {
-				set cur_connected 1
+			if { [regexp {^\s*signal:\s*(\S.*)\s*$} $d match signal] } {
+				set cur_signal $signal
+			}
+			if { [regexp {^BSS\s([a-fA-F0-9\:]+)} $d match bss] } {
+				if {$cur_ssid != "" && $cur_signal != ""} {
+					set ssids(${cur_ssid}::ssid) $cur_ssid
+					set ssids(${cur_ssid}::signal) $cur_signal
+					set ssids(${cur_ssid}::connected) $cur_connected
+					set cur_ssid ""
+					set cur_signal ""
+					set cur_connected 0
+				}
+				if { [regexp {associated} $d match] } {
+					set cur_connected 1
+				}
 			}
 		}
+		if {$cur_ssid != "" && $cur_signal != ""} {
+			set ssids(${cur_ssid}::ssid) $cur_ssid
+			set ssids(${cur_ssid}::signal) $cur_signal
+		}
+	} err] {
+		write_log 1 "WLAN scan failed: ${err}"
 	}
-	if {$cur_ssid != "" && $cur_signal != ""} {
-		set ssids(${cur_ssid}::ssid) $cur_ssid
-		set ssids(${cur_ssid}::signal) $cur_signal
-	}
-
+	
 	if {$as_json == 1} {
 		return [array_to_json [array get ssids]]
 	} else {
