@@ -1064,10 +1064,8 @@ proc ::rmupdate::get_available_firmware_downloads {} {
 			set fn [lindex [split $href "/"] end]
 			set tmp [split $fn "-"]
 			set v [lindex $tmp [expr {[llength $tmp] - 1}]]
-			if { $v == "ova" && $rpi_version == "ova-KVM" } {
-				write_log 4 "Using ova package for ova-KVM: ${href}"
-			} elseif { $v == "ova" && $rpi_version == "ova-Microsoft" } {
-				write_log 4 "Using ova package for ova-Microsoft: ${href}"
+			if { $v == "ova" && [string first "ova" $rpi_version] == 0 } {
+				write_log 4 "Using ova package for ${rpi_version}: ${href}"
 			} elseif { $rpi_version != $v } {
 				continue
 			}
@@ -1512,6 +1510,10 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 	variable rc_dir
 	variable addons_www_dir
 	array set addons {}
+	set x86 0
+	if {[string first "ova" [get_rpi_version]] == 0} {
+		set x86 1
+	}
 	foreach f [glob ${rc_dir}/*] {
 		catch {
 			set data [exec $f info]
@@ -1639,17 +1641,23 @@ proc ::rmupdate::get_addon_info {{fetch_available_version 0} {fetch_download_url
 												regexp $regex_version $filename m v
 												if { [info exists m] } {
 													# version match
-													set prio [expr {$prio + 3}]
+													set prio [expr {$prio + 4}]
 													unset m
 												}
 												if {[string first "download" $filename] > -1} {
 													set prio [expr {$prio + 2}]
 												}
-												if {[string first "ccurm" $filename] > -1} {
-													set prio [expr {$prio + 2}]
+												if {[string first "ccurm" $filename] > -1 || [string first "ccu3" $filename] > -1} {
+													if {$x86 == 1} {
+														set prio [expr {$prio + 2}]
+													} else {
+														set prio [expr {$prio + 3}]
+													}
 												}
-												if {[string first "ccu3" $filename] > -1} {
-													set prio [expr {$prio + 2}]
+												if {[string first "x86" $filename] > -1} {
+													if {$x86 == 1} {
+														set prio [expr {$prio + 3}]
+													}
 												}
 												if {$prio > $best_prio} {
 													set best_prio $prio
