@@ -25,6 +25,7 @@ if {[info exists env(QUERY_STRING)]} {
 	regexp {cmd=([^&]+)} $env(QUERY_STRING) match cmd
 }
 if {$cmd == "download"} {
+	puts "Content-Type: text/html\n"
 	puts "<html><head><meta http-equiv=\"refresh\" content=\"0; url=${package_url}\" /></head><body><a href=\"${package_url}\">${package_url}</a></body></html>"
 } else {
 	puts [exec /usr/bin/wget -q --no-check-certificate -O- "${version_url}"]
