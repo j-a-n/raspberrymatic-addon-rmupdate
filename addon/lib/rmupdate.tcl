@@ -1066,6 +1066,8 @@ proc ::rmupdate::get_available_firmware_downloads {} {
 			set v [lindex $tmp [expr {[llength $tmp] - 1}]]
 			if { $v == "ova" && $rpi_version == "ova-KVM" } {
 				write_log 4 "Using ova package for ova-KVM: ${href}"
+			} elseif { $v == "ova" && $rpi_version == "ova-Microsoft" } {
+				write_log 4 "Using ova package for ova-Microsoft: ${href}"
 			} elseif { $rpi_version != $v } {
 				continue
 			}
